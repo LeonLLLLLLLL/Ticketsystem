@@ -1,0 +1,46 @@
+version: '3.8'
+services:
+  frontend:
+    build: ./forntend
+    container_name: frontend
+    ports:
+      - "8080:8080"
+    depends_on:
+      - address_module_backend
+    networks:
+      - mynetwork
+
+  address_module_backend:
+    build: ./address_module_backend
+    container_name: address_module_backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mysql
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_USER: user  # Changed to match MySQL user
+      MYSQL_PASSWORD: password  # Changed to match MySQL password
+      MYSQL_DATABASE: FirmDB
+    networks:
+      - mynetwork
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+      MYSQL_DATABASE: FirmDB
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - mynetwork
+
+networks:
+  mynetwork:
+
+volumes:
+  mysql_data:

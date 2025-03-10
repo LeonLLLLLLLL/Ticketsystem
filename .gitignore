@@ -1,0 +1,67 @@
+# Go backend
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go dependency directories
+vendor/
+
+# Go workspace file
+go.work
+
+# Frontend
+# dependencies
+/forntend/node_modules/
+/forntend/.pnp
+/forntend/.pnp.js
+
+# testing
+/forntend/coverage
+
+# build
+/forntend/build/
+/forntend/.svelte-kit/
+/forntend/package/
+
+# environment vars
+/forntend/.env
+/forntend/.env.*
+!/forntend/.env.example
+
+# logs
+/forntend/npm-debug.log*
+/forntend/yarn-debug.log*
+/forntend/yarn-error.log*
+/forntend/pnpm-debug.log*
+
+# IDE specific files
+.idea/
+.vscode/
+*.code-workspace
+*.sublime-workspace
+*.sublime-project
+.DS_Store
+
+# Database data
+/mysql_data/
+*.db
+*.sqlite
+
+# Local configuration
+*.local
+.env
+./CLAUDE.md
+chalk
+
+# Operating system files
+.DS_Store
+Thumbs.db
