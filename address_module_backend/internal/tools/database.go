@@ -331,7 +331,6 @@ type ContactParams struct {
 	Kontotyp   string
 }
 
-/*
 // InsertContact inserts contact data into MySQL and creates relationship with firm
 func (db *MySQLDB) InsertContact(contact ContactParams) (int64, error) {
 	// Begin transaction
@@ -343,12 +342,13 @@ func (db *MySQLDB) InsertContact(contact ContactParams) (int64, error) {
 
 	// Step 1: Insert the contact
 	contactQuery := `
-	INSERT INTO contacts (anrede, name, position, telefon, mobil, email, abteilung, geburtstag, bemerkung, kontotyp)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	INSERT INTO contacts (anrede, vorname, nachname, position, telefon, mobil, email, abteilung, geburtstag, bemerkung, kontotyp)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	contactResult, err := tx.Exec(contactQuery,
 		contact.Anrede,
-		contact.Name,
+		contact.Vorname,
+		contact.Nachname,
 		contact.Position,
 		contact.Telefon,
 		contact.Mobil,
@@ -372,27 +372,19 @@ func (db *MySQLDB) InsertContact(contact ContactParams) (int64, error) {
 		return 0, err
 	}
 
-	// Step 2: Create relationship with firm
-	relationQuery := `
-	INSERT INTO firms_contacts (firma_id, contact_id)
-	VALUES (?, ?)`
-
-	_, err = tx.Exec(relationQuery, contact.FirmaID, contactID)
-	if err != nil {
-		tx.Rollback()
-		log.Error("Failed to create relationship: ", err)
-		return 0, err
-	}
-
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
 		log.Error("Failed to commit transaction: ", err)
 		return 0, err
 	}
 
+	log.WithFields(log.Fields{
+		"contact_id": contactID,
+	}).Info("Contact inserted successfully")
+
 	return contactID, nil
 }
-*/
+
 // InsertContactWithFirms inserts a contact and creates relationships with multiple firms
 func (db *MySQLDB) InsertContactWithFirms(contact ContactParams, firmIDs []int64) (int64, error) {
 	// Begin transaction
@@ -546,7 +538,7 @@ func (db *MySQLDB) GetAllFirms() ([]FirmParams, error) {
 // GetAllContacts retrieves all contacts from the database
 func (db *MySQLDB) GetAllContacts() ([]ContactParams, error) {
 	query := `
-	SELECT id, anrede, name, position, telefon, mobil, 
+	SELECT id, anrede, vorname, nachname, position, telefon, mobil, 
 	       email, abteilung, geburtstag, bemerkung, kontotyp
 	FROM contacts
 	ORDER BY id DESC`

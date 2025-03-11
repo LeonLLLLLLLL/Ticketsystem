@@ -38,13 +38,6 @@ func AddContact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate firm ID(s)
-	if len(params.Firms) == 0 {
-		log.Warn(ErrMissingFirmID)
-		api.RequestErrorHandler(w, errors.New("missing required firm ID or firm IDs"))
-		return
-	}
-
 	// Connect to MySQL database
 	db, err := tools.NewDatabase(5, 3*time.Second)
 	if err != nil {
@@ -81,15 +74,16 @@ func AddContact(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		log.WithField("firm_ids", params.Firms).Info("Contact associated with multiple firms")
-	} /*else {
-		// For backward compatibility: Insert contact with a single firm
+	} else {
+		//Insert a contact without any firm relationships
+		log.Info("Inserting contact without firm relationships")
 		contactID, err = db.InsertContact(contact)
 		if err != nil {
 			log.Error("Failed to insert contact data: ", err)
 			api.InternalErrorHandler(w)
 			return
 		}
-	}*/
+	}
 
 	// Log received data
 	logFields := log.Fields{

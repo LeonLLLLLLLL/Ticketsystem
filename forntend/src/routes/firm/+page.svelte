@@ -34,23 +34,25 @@
 					"Authorization": "123456789",
 				},
 			});
-			
-			// Transform the API response format for our component
-			allContacts = response.data.contacts.map((contact: any) => ({
-				id: contact.id,
-				anrede: contact.anrede,
-				vorname: contact.name.split(' ')[0],
-				nachname: contact.name.split(' ').slice(1).join(' '),
-				name: contact.name,
-				position: contact.position,
-				telefon: contact.telefon,
-				mobil: contact.mobil,
-				email: contact.email,
-				abteilung: contact.abteilung,
-				geburtstag: contact.geburtstag,
-				selected: false // Add a property to track selection state
-			}));
-			
+			if(response.data.contacts == null){
+				console.log("No contacts found");
+			}else if(response.data.contacts != null && response.data.count > 0){
+				// Transform the API response format for our component
+				allContacts = response.data.contacts.map((contact: any) => ({
+					id: contact.id,
+					anrede: contact.anrede,
+					vorname: contact.vorname,
+					nachname: contact.nachname,
+					name: contact.name,
+					position: contact.position,
+					telefon: contact.telefon,
+					mobil: contact.mobil,
+					email: contact.email,
+					abteilung: contact.abteilung,
+					geburtstag: contact.geburtstag,
+					selected: false // Add a property to track selection state
+				}));
+			}
 			loading = false;
 		} catch (err) {
 			console.error("Error fetching contacts:", err);
@@ -248,7 +250,7 @@
   
 			<!-- RIGHT SECTION: CONTACTS -->
 			<section class="contacts-section">
-				<h2 class="section-title">Kontaktauswahl</h2>
+				<h2 class="section-title">Filter Konten</h2>
 				
 				{#if loading}
 					<div class="loading-state">

@@ -31,18 +31,22 @@
 					"Authorization": "123456789",
 				},
 			});
+			if(response.data.firms == null){
+				console.log("No firms found");
+			}else if(response.data.firms != null && response.data.count > 0){
+				// Transform the API response format for our component
+				allFirms = response.data.firms.map((firm: any) => ({
+					id: firm.id,
+					name: firm.name_1, // Assuming name_1 is the company name
+					adresse: `${firm.straße}, ${firm.plz} ${firm.ort}`,
+					telefon: firm.telefon,
+					email: firm.email,
+					website: firm.website,
+					firma_typ: firm.firma_typ,
+					selected: false // Add a property to track selection state
+				}));
+			}
 			
-			// Transform the API response format for our component
-			allFirms = response.data.firms.map((firm: any) => ({
-				id: firm.id,
-				name: firm.name_1, // Assuming name_1 is the company name
-				adresse: `${firm.straße}, ${firm.plz} ${firm.ort}`,
-				telefon: firm.telefon,
-				email: firm.email,
-				website: firm.website,
-				firma_typ: firm.firma_typ,
-				selected: false // Add a property to track selection state
-			}));
 			
 			loading = false;
 		} catch (err) {
@@ -221,7 +225,7 @@
 
 			<!-- RIGHT SECTION: SELECTED FIRMS -->
 			<section class="firms-section">
-				<h2 class="section-title">Firmenauswahl</h2>
+				<h2 class="section-title">Filter Firmen</h2>
 				
 				{#if loading}
 					<div class="loading-state">
