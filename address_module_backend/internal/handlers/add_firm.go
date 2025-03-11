@@ -69,9 +69,18 @@ func AddFirm(w http.ResponseWriter, r *http.Request) {
 	var firmID int64
 	var insertErr error
 
-	// Check if a contact ID was provided to create a relationship
-	if params.ContactID > 0 {
-		// Insert firm data and create relationship with contact
+	// Check if contact IDs were provided to create relationships
+	if len(params.ContactIDs) > 0 {
+		// Insert firm data and create relationships with multiple contacts
+		firmID, insertErr = db.InsertFirmWithContacts(firm, params.ContactIDs)
+		if insertErr != nil {
+			log.Error("Failed to insert firm data with contact relationships: ", insertErr)
+			api.InternalErrorHandler(w)
+			return
+		}
+		log.WithField("contact_ids", params.ContactIDs).Info("Firm associated with contacts")
+	} else if params.ContactID > 0 {
+		// For backward compatibility: Insert firm data and create relationship with a single contact
 		firmID, insertErr = db.InsertFirmWithContact(firm, params.ContactID)
 		if insertErr != nil {
 			log.Error("Failed to insert firm data with contact relationship: ", insertErr)
@@ -90,7 +99,8 @@ func AddFirm(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Log received data
-	log.WithFields(log.Fields{
+	logFields := log.Fields{
+		"firm_id":   firmID,
 		"anrede":    params.Anrede,
 		"name_1":    params.Name1,
 		"name_2":    params.Name2,
@@ -107,15 +117,33 @@ func AddFirm(w http.ResponseWriter, r *http.Request) {
 		"gesperrt":  params.Gesperrt,
 		"bemerkung": params.Bemerkung,
 		"firma_typ": params.FirmaTyp,
-	}).Info("Firm successfully registered in database")
+	}
+	
+	// Add contact relationship info to logs
+	if len(params.ContactIDs) > 0 {
+		logFields["contact_ids"] = params.ContactIDs
+	} else if params.ContactID > 0 {
+		logFields["contact_id"] = params.ContactID
+	}
+	
+	log.WithFields(logFields).Info("Firm successfully registered in database")
 
 	// Respond with success
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(map[string]interface{}{
+	response := map[string]interface{}{
 		"message": "Firm successfully registered",
 		"firm_id": firmID,
-	})
+	}
+	
+	// Add relationship info to response
+	if len(params.ContactIDs) > 0 {
+		response["contact_ids"] = params.ContactIDs
+	} else if params.ContactID > 0 {
+		response["contact_id"] = params.ContactID
+	}
+	
+	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		log.Error("Failed to encode response: ", err)
 		api.InternalErrorHandler(w)

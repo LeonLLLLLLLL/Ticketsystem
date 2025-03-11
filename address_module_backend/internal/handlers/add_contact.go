@@ -32,16 +32,16 @@ func AddContact(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate required fields
-	if params.Name == "" || params.Email == "" || params.Kontotyp == "" {
+	if params.Vorname == "" || params.Email == "" /*|| params.Kontotyp == "" */ {
 		log.Warn(ErrMissingContactFields)
 		api.RequestErrorHandler(w, ErrMissingContactFields)
 		return
 	}
 
-	// Validate firm ID
-	if params.FirmaID <= 0 {
+	// Validate firm ID(s)
+	if len(params.Firms) == 0 {
 		log.Warn(ErrMissingFirmID)
-		api.RequestErrorHandler(w, ErrMissingFirmID)
+		api.RequestErrorHandler(w, errors.New("missing required firm ID or firm IDs"))
 		return
 	}
 
@@ -57,7 +57,8 @@ func AddContact(w http.ResponseWriter, r *http.Request) {
 	// Convert api.ContactParams to tools.ContactParams
 	contact := tools.ContactParams{
 		Anrede:     params.Anrede,
-		Name:       params.Name,
+		Vorname:    params.Vorname,
+		Nachname:   params.Nachname,
 		Position:   params.Position,
 		Telefon:    params.Telefon,
 		Mobil:      params.Mobil,
@@ -66,33 +67,63 @@ func AddContact(w http.ResponseWriter, r *http.Request) {
 		Geburtstag: params.Geburtstag,
 		Bemerkung:  params.Bemerkung,
 		Kontotyp:   params.Kontotyp,
-		FirmaID:    params.FirmaID,
 	}
 
-	// Insert contact and create relationship
-	contactID, err := db.InsertContact(contact)
-	if err != nil {
-		log.Error("Failed to insert contact data: ", err)
-		api.InternalErrorHandler(w)
-		return
-	}
+	var contactID int64
+
+	// Insert contact with relationships
+	if len(params.Firms) > 0 {
+		// Insert contact and create relationships with multiple firms
+		contactID, err = db.InsertContactWithFirms(contact, params.Firms)
+		if err != nil {
+			log.Error("Failed to insert contact data with firm relationships: ", err)
+			api.InternalErrorHandler(w)
+			return
+		}
+		log.WithField("firm_ids", params.Firms).Info("Contact associated with multiple firms")
+	} /*else {
+		// For backward compatibility: Insert contact with a single firm
+		contactID, err = db.InsertContact(contact)
+		if err != nil {
+			log.Error("Failed to insert contact data: ", err)
+			api.InternalErrorHandler(w)
+			return
+		}
+	}*/
 
 	// Log received data
-	log.WithFields(log.Fields{
+	logFields := log.Fields{
 		"contact_id": contactID,
-		"name":       params.Name,
+		"vorname":    params.Vorname,
 		"email":      params.Email,
-		"firma_id":   params.FirmaID,
-		"kontotyp":   params.Kontotyp,
-	}).Info("Contact successfully registered in database")
+		//"kontotyp":   params.Kontotyp,
+	}
+
+	// Add firm relationship info to logs
+	if len(params.Firms) > 0 {
+		logFields["firma_ids"] = params.Firms
+	} else {
+		logFields["firma_id"] = params.Firms
+	}
+
+	log.WithFields(logFields).Info("Contact successfully registered in database")
 
 	// Respond with success
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(map[string]interface{}{
+	response := map[string]interface{}{
 		"message":    "Contact successfully registered",
 		"contact_id": contactID,
-	})
+	}
+
+	// Add relationship info to response
+	if len(params.Firms) > 0 {
+		response["firm_ids"] = params.Firms
+	} else {
+		response["firm_id"] = params.Firms
+	}
+
+	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		log.Error("Failed to encode response: ", err)
 		api.InternalErrorHandler(w)

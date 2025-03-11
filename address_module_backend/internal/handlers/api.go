@@ -23,11 +23,11 @@ func Handler(r *chi.Mux) {
 		router.Get("/get_by_id", GetFirmsByContactID)
 		router.Get("/get", GetAllFirms)
 	})
-	
+
 	r.Route("/contact", func(router chi.Router) {
 		router.Use(middleware.Authorization)
 		router.Post("/submit", AddContact)
-		router.Get("/get_by_id", GetContactsByFirmID)
+		//router.Get("/get_by_id", GetContactsByFirmID)
 		router.Get("/get", GetAllContacts)
 	})
 }

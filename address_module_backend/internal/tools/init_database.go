@@ -44,7 +44,8 @@ func (db *MySQLDB) SetupContactsTable() error {
 	CREATE TABLE IF NOT EXISTS contacts (
 		id INT AUTO_INCREMENT PRIMARY KEY,
 		anrede VARCHAR(50),
-		name VARCHAR(255) NOT NULL,
+		vorname VARCHAR(255) NOT NULL,
+		nachname VARCHAR(255) NOT NULL,
 		position VARCHAR(255),
 		telefon VARCHAR(50),
 		mobil VARCHAR(50),

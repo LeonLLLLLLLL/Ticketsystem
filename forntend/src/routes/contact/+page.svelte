@@ -4,12 +4,11 @@
 	import { onMount } from 'svelte';
 	
 	let formData = Array(9).fill("");
-	let dropdownSelection = "";
-	
-	// Initialize firms with empty array, will be filled from API
-	let firms = [];
+	let selectedFirms: number[] = [];
+	let allFirms: any[] = [];
 	let loading = true;
 	let error = '';
+	let kontotypDropdown = "";
 
 	let input_placeholders = ["Anrede", "Vorname", "Nachname", "Position", "Abteilung", "Telefon", "Mobil", "Email", "Geburtstag"];
 	let input_ids = ["anrede", "vorname", "nachname", "position", "abteilung", "telefon", "mobil", "email", "geburtstag"];
@@ -21,26 +20,28 @@
 			: "http://address_module_backend:8000")
 		: "http://address_module_backend:8000";
 
-	// Function to fetch firms for a contact when page loads
-	async function fetchFirms() {
+	// Function to fetch all firms when page loads
+	async function fetchAllFirms() {
 		loading = true;
 		error = '';
 		
 		try {
-			const response = await axios.get(`${API_URL}/firm/get_by_id?username=tom&id=1`, {
+			const response = await axios.get(`${API_URL}/firm/get?username=tom`, {
 				headers: {
 					"Authorization": "123456789",
 				},
 			});
 			
-			// Transform the API response format to match our component's expected format
-			firms = response.data.firms.map(firm => ({
+			// Transform the API response format for our component
+			allFirms = response.data.firms.map((firm: any) => ({
+				id: firm.id,
 				name: firm.name_1, // Assuming name_1 is the company name
 				adresse: `${firm.straße}, ${firm.plz} ${firm.ort}`,
 				telefon: firm.telefon,
 				email: firm.email,
 				website: firm.website,
-				firma_typ: firm.firma_typ
+				firma_typ: firm.firma_typ,
+				selected: false // Add a property to track selection state
 			}));
 			
 			loading = false;
@@ -50,22 +51,42 @@
 			loading = false;
 			
 			// Fallback to example data if API fails
-			firms = [
-				{ name: "Musterfirma GmbH", adresse: "Hauptstr. 1, 10115 Berlin", telefon: "+49 30 12345678", email: "info@musterfirma.com", website: "www.musterfirma.com", firma_typ: "Hauptfirma" },
-				{ name: "Example Corp.", adresse: "Musterweg 42, 20354 Hamburg", telefon: "+49 40 87654321", email: "contact@example.com", website: "www.example.com", firma_typ: "Niederlassung" }
+			allFirms = [
+				{ id: 1, name: "Musterfirma GmbH", adresse: "Hauptstr. 1, 10115 Berlin", telefon: "+49 30 12345678", email: "info@musterfirma.com", website: "www.musterfirma.com", firma_typ: "Hauptfirma", selected: false },
+				{ id: 2, name: "Example Corp.", adresse: "Musterweg 42, 20354 Hamburg", telefon: "+49 40 87654321", email: "contact@example.com", website: "www.example.com", firma_typ: "Niederlassung", selected: false }
 			];
 		}
 	}
 
 	// Call API when page loads
-	onMount(fetchFirms);
+	onMount(fetchAllFirms);
+
+	// Toggle firm selection
+	function toggleFirmSelection(id: number) {
+		const index = allFirms.findIndex(firm => firm.id === id);
+		if (index !== -1) {
+			allFirms[index].selected = !allFirms[index].selected;
+			// Update selectedFirms array
+			if (allFirms[index].selected) {
+				selectedFirms = [...selectedFirms, id];
+			} else {
+				selectedFirms = selectedFirms.filter(firmId => firmId !== id);
+			}
+			// Log selected firms to console
+			console.log("Selected firms:", selectedFirms);
+		}
+	}
 
 	async function submitForm() {
 		let jsonData: Record<string, any> = {};
 		input_ids.forEach((key, index) => {
 			jsonData[key] = formData[index];
 		});
-		jsonData["firma"] = dropdownSelection;
+		
+		// Add selected firms IDs and kontotyp to the JSON data
+		jsonData["kontotyp"] = kontotypDropdown;
+		jsonData["firms"] = selectedFirms;
+		console.log(JSON.stringify(jsonData, null, 2));
 
 		try {
 			const response = await axios.post(`${API_URL}/contact/submit?username=tom`, jsonData, {
@@ -75,8 +96,11 @@
 				},
 			});
 			console.log("Contact submitted successfully:", response.data);
-			// Refresh firms list after successful submission
-			fetchFirms();
+			// Refresh firms list and reset selections
+			fetchAllFirms();
+			selectedFirms = [];
+			formData = Array(9).fill("");
+			kontotypDropdown = "";
 		} catch (err) {
 			console.error("Submission error:", err);
 		}
@@ -121,32 +145,83 @@
 						</div>
 					{/each}
 				</div>
-		
-				<!-- Dropdown for firm selection -->
+				
+				<!-- Kontotyp Dropdown -->
 				<div class="form-extras">
 					<select 
-						bind:value={dropdownSelection} 
+						bind:value={kontotypDropdown} 
 						class="dropdown"
 					>
-						<option value="" disabled selected>Firma zuordnen</option>
-						{#each firms as firm}
-							<option>{firm.name}</option>
-						{/each}
+						<option value="" disabled selected>Kontotyp wählen</option>
+						<option>Kontakt</option>
+						<option>Rechnungsadresse</option>
+						<option>Lieferadresse</option>
+						<option>Interner Mitarbeiter</option>
 					</select>
+				</div>
+		
+				<!-- Firm Selection Area -->
+				<div class="firm-selection">
+					<h3 class="subsection-title">Firmen zuordnen</h3>
+					<p class="help-text">Wählen Sie eine oder mehrere Firmen aus:</p>
+					
+					{#if loading}
+						<div class="loading-state">
+							<p>Firmen werden geladen...</p>
+						</div>
+					{:else if error}
+						<div class="error-state">
+							<p>{error}</p>
+						</div>
+					{:else if allFirms.length === 0}
+						<div class="empty-state">
+							<p>Keine Firmen gefunden.</p>
+						</div>
+					{:else}
+						<div class="firms-checkboxes">
+							{#each allFirms as firm (firm.id)}
+								<label class="firm-checkbox">
+									<input 
+										type="checkbox" 
+										checked={firm.selected} 
+										on:change={() => toggleFirmSelection(firm.id)} 
+									/>
+									<span class="firm-name">{firm.name}</span>
+									<span class="firm-type">({firm.firma_typ || 'Keine Angabe'})</span>
+								</label>
+							{/each}
+						</div>
+						
+						<!-- Selected Firms Preview -->
+						{#if selectedFirms.length > 0}
+							<div class="selected-preview">
+								<h4>Ausgewählte Firmen:</h4>
+								<ul class="selected-list">
+									{#each selectedFirms as id}
+										{@const firm = allFirms.find(f => f.id === id)}
+										{#if firm}
+											<li>{firm.name} <button class="remove-btn" on:click={() => toggleFirmSelection(id)}>✕</button></li>
+										{/if}
+									{/each}
+								</ul>
+							</div>
+						{/if}
+					{/if}
 				</div>
 		
 				<!-- Submit Button -->
 				<button 
 					class="submit-button" 
 					on:click={submitForm}
+					disabled={loading}
 				>
 					Kontakt Speichern
 				</button>
 			</section>
 
-			<!-- RIGHT SECTION: FIRMS -->
+			<!-- RIGHT SECTION: SELECTED FIRMS -->
 			<section class="firms-section">
-				<h2 class="section-title">Zugeordnete Firmen</h2>
+				<h2 class="section-title">Firmenauswahl</h2>
 				
 				{#if loading}
 					<div class="loading-state">
@@ -156,17 +231,20 @@
 					<div class="error-state">
 						<p>{error}</p>
 					</div>
-				{:else if firms.length === 0}
+				{:else if allFirms.length === 0}
 					<div class="empty-state">
 						<p>Keine Firmen gefunden.</p>
 					</div>
 				{:else}
 					<div class="firms-list">
-						{#each firms as firm}
-							<div class="firm-card">
+						{#each allFirms as firm (firm.id)}
+							<div class="firm-card {firm.selected ? 'selected' : ''}" on:click={() => toggleFirmSelection(firm.id)}>
 								<div class="firm-header">
 									<h3>{firm.name}</h3>
 									<p class="firm-type">{firm.firma_typ || 'Keine Angabe'}</p>
+									{#if firm.selected}
+										<div class="selected-badge">✓</div>
+									{/if}
 								</div>
 								<div class="firm-details">
 									<p>📍 {firm.adresse || 'Keine Angabe'}</p>
@@ -267,6 +345,18 @@
 		padding-bottom: 10px;
 		margin-bottom: 20px;
 	}
+	
+	.subsection-title {
+		color: #2c3e50;
+		margin-bottom: 10px;
+		font-size: 1.1rem;
+	}
+	
+	.help-text {
+		color: #7f8c8d;
+		font-size: 0.9rem;
+		margin-bottom: 10px;
+	}
 
 	.input-grid {
 		display: grid;
@@ -296,17 +386,96 @@
 		outline: none;
 		border-color: #3498db;
 	}
-
+	
 	.form-extras {
 		display: flex;
 		flex-direction: column;
 		gap: 15px;
+		margin-top: 15px;
 	}
 
 	.dropdown {
 		padding: 10px;
 		border: 1px solid #bdc3c7;
 		border-radius: 4px;
+	}
+	
+	/* Firm Selection */
+	.firm-selection {
+		background-color: #f8f9fa;
+		border-radius: 8px;
+		padding: 15px;
+		margin-top: 15px;
+	}
+	
+	.firms-checkboxes {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		max-height: 200px;
+		overflow-y: auto;
+		padding: 5px;
+		border: 1px solid #e9ecef;
+		border-radius: 4px;
+		background-color: white;
+	}
+	
+	.firm-checkbox {
+		display: flex;
+		align-items: center;
+		padding: 8px;
+		border-radius: 4px;
+		transition: background-color 0.2s;
+		cursor: pointer;
+	}
+	
+	.firm-checkbox:hover {
+		background-color: #f1f5f9;
+	}
+	
+	.firm-name {
+		margin-left: 8px;
+		font-weight: 500;
+	}
+	
+	.firm-type {
+		margin-left: 8px;
+		font-size: 0.8rem;
+		color: #7f8c8d;
+	}
+	
+	/* Selected Firms Preview */
+	.selected-preview {
+		margin-top: 15px;
+		padding: 10px;
+		background-color: #e1f5fe;
+		border-radius: 6px;
+	}
+	
+	.selected-preview h4 {
+		margin-bottom: 8px;
+		font-size: 0.9rem;
+		color: #0277bd;
+	}
+	
+	.selected-list {
+		list-style: none;
+	}
+	
+	.selected-list li {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 5px 0;
+		border-bottom: 1px dashed #b3e5fc;
+	}
+	
+	.remove-btn {
+		background: none;
+		border: none;
+		color: #e57373;
+		cursor: pointer;
+		font-weight: bold;
 	}
 
 	.submit-button {
@@ -317,10 +486,16 @@
 		border-radius: 4px;
 		cursor: pointer;
 		transition: background-color 0.3s ease;
+		margin-top: 20px;
 	}
 
 	.submit-button:hover {
 		background-color: #2980b9;
+	}
+	
+	.submit-button:disabled {
+		background-color: #95a5a6;
+		cursor: not-allowed;
 	}
 
 	/* Firms Section */
@@ -334,6 +509,8 @@
 		display: flex;
 		flex-direction: column;
 		gap: 15px;
+		max-height: 600px;
+		overflow-y: auto;
 	}
 
 	.firm-card {
@@ -342,6 +519,19 @@
 		border-radius: 6px;
 		padding: 15px;
 		box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+		cursor: pointer;
+		transition: all 0.2s ease;
+		position: relative;
+	}
+	
+	.firm-card:hover {
+		transform: translateY(-3px);
+		box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+	}
+	
+	.firm-card.selected {
+		border-color: #3498db;
+		background-color: #ebf5fb;
 	}
 
 	.firm-header {
@@ -363,6 +553,21 @@
 	.firm-details p {
 		margin-bottom: 5px;
 		color: #34495e;
+	}
+	
+	.selected-badge {
+		position: absolute;
+		top: 10px;
+		right: 10px;
+		width: 24px;
+		height: 24px;
+		background-color: #3498db;
+		color: white;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-weight: bold;
 	}
 	
 	/* Loading and Error States */

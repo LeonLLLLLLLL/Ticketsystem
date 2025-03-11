@@ -7,9 +7,8 @@
 	let checkboxes = [false, false, false];
 	let dropdownSelection = "";
 	let remark = "";
-  
-	// Initialize contacts with empty array, will be filled from API
-	let contacts: any[] = [];
+	let selectedContacts: number[] = [];
+	let allContacts: any[] = [];
 	let loading = true;
 	let error = '';
   
@@ -24,41 +23,32 @@
 			: "http://address_module_backend:8000")
 		: "http://address_module_backend:8000";
 
-	interface ApiContact {
-		anrede: string;
-		name: string;
-		position: string;
-		telefon: string;
-		mobil: string;
-		email: string;
-		abteilung: string;
-		geburtstag: string;
-		// Add any other properties that might exist in the API response
-	}
-
-	// Function to fetch contacts for a firm when page loads
-	async function fetchContacts() {
+	// Function to fetch all contacts when page loads
+	async function fetchAllContacts() {
 		loading = true;
 		error = '';
 		
 		try {
-			const response = await axios.get(`${API_URL}/contact/get_by_id?username=tom&id=1`, {
+			const response = await axios.get(`${API_URL}/contact/get?username=tom`, {
 				headers: {
 					"Authorization": "123456789",
 				},
 			});
 			
-			// Transform the API response format to match our component's expected format
-			contacts = response.data.contacts.map((contact: ApiContact) => ({
+			// Transform the API response format for our component
+			allContacts = response.data.contacts.map((contact: any) => ({
+				id: contact.id,
 				anrede: contact.anrede,
 				vorname: contact.name.split(' ')[0],
 				nachname: contact.name.split(' ').slice(1).join(' '),
+				name: contact.name,
 				position: contact.position,
 				telefon: contact.telefon,
 				mobil: contact.mobil,
 				email: contact.email,
 				abteilung: contact.abteilung,
-				geburtstag: contact.geburtstag
+				geburtstag: contact.geburtstag,
+				selected: false // Add a property to track selection state
 			}));
 			
 			loading = false;
@@ -68,15 +58,32 @@
 			loading = false;
 			
 			// Fallback to example data if API fails
-			contacts = [
-				{ anrede: "Herr", vorname: "Max", nachname: "Mustermann", position: "IT Support", telefon: "+49 123 456789", mobil: "+49 987 654321", email: "max.mustermann@example.com", abteilung: "Technik", geburtstag: "01.01.1990" },
-				{ anrede: "Frau", vorname: "Lisa", nachname: "Musterfrau", position: "Projektmanagerin", telefon: "+49 234 567890", mobil: "+49 876 543210", email: "lisa.musterfrau@example.com", abteilung: "Management", geburtstag: "15.05.1985" }
+			allContacts = [
+				{ id: 1, anrede: "Herr", vorname: "Max", nachname: "Mustermann", name: "Max Mustermann", position: "IT Support", telefon: "+49 123 456789", mobil: "+49 987 654321", email: "max.mustermann@example.com", abteilung: "Technik", geburtstag: "01.01.1990", selected: false },
+				{ id: 2, anrede: "Frau", vorname: "Lisa", nachname: "Musterfrau", name: "Lisa Musterfrau", position: "Projektmanagerin", telefon: "+49 234 567890", mobil: "+49 876 543210", email: "lisa.musterfrau@example.com", abteilung: "Management", geburtstag: "15.05.1985", selected: false }
 			];
 		}
 	}
 
 	// Call API when page loads
-	onMount(fetchContacts);
+	onMount(fetchAllContacts);
+
+	// Toggle contact selection
+	function toggleContactSelection(id: number) {
+		const index = allContacts.findIndex(contact => contact.id === id);
+		if (index !== -1) {
+			allContacts[index].selected = !allContacts[index].selected;
+			// Update selectedContacts array
+			if (allContacts[index].selected) {
+				selectedContacts = [...selectedContacts, id];
+			} else {
+				selectedContacts = selectedContacts.filter(contactId => contactId !== id);
+			}
+			// Log selected contacts to console
+			console.log("Selected contacts:", selectedContacts);
+			allContacts = [...allContacts]; // Trigger UI update
+		}
+	}
 
 	async function submitForm() {
 		let jsonData: Record<string, any> = {};
@@ -88,6 +95,9 @@
 		});
 		jsonData["bemerkung"] = remark;
 		jsonData["firma_typ"] = dropdownSelection;
+		
+		// Add selected contacts IDs to the JSON data
+		jsonData["contacts"] = selectedContacts;
 
 		try {
 			const response = await axios.post(`${API_URL}/firm/submit?username=tom`, jsonData, {
@@ -97,8 +107,13 @@
 				},
 			});
 			console.log("Form submitted successfully:", response.data);
-			// Refresh contacts list after successful submission
-			fetchContacts();
+			// Refresh contacts list and reset selections
+			fetchAllContacts();
+			selectedContacts = [];
+			formData = Array(11).fill("");
+			checkboxes = [false, false, false];
+			remark = "";
+			dropdownSelection = "";
 		} catch (err) {
 			console.error("Submission error:", err);
 		}
@@ -171,11 +186,61 @@
 						<option>Niederlassung</option>
 					</select>
 				</div>
+				
+				<!-- Contact Selection Area -->
+				<div class="contact-selection">
+					<h3 class="subsection-title">Kontakte zuordnen</h3>
+					<p class="help-text">Wählen Sie einen oder mehrere Kontakte aus:</p>
+					
+					{#if loading}
+						<div class="loading-state">
+							<p>Kontakte werden geladen...</p>
+						</div>
+					{:else if error}
+						<div class="error-state">
+							<p>{error}</p>
+						</div>
+					{:else if allContacts.length === 0}
+						<div class="empty-state">
+							<p>Keine Kontakte gefunden.</p>
+						</div>
+					{:else}
+						<div class="contacts-checkboxes">
+							{#each allContacts as contact (contact.id)}
+								<label class="contact-checkbox">
+									<input 
+										type="checkbox" 
+										checked={contact.selected} 
+										on:change={() => toggleContactSelection(contact.id)} 
+									/>
+									<span class="contact-name">{contact.anrede} {contact.name}</span>
+									<span class="contact-role">({contact.position || 'Keine Angabe'})</span>
+								</label>
+							{/each}
+						</div>
+						
+						<!-- Selected Contacts Preview -->
+						{#if selectedContacts.length > 0}
+							<div class="selected-preview">
+								<h4>Ausgewählte Kontakte:</h4>
+								<ul class="selected-list">
+									{#each selectedContacts as id}
+										{@const contact = allContacts.find(c => c.id === id)}
+										{#if contact}
+											<li>{contact.anrede} {contact.name} <button class="remove-btn" on:click={() => toggleContactSelection(id)}>✕</button></li>
+										{/if}
+									{/each}
+								</ul>
+							</div>
+						{/if}
+					{/if}
+				</div>
 		
 				<!-- Submit Button -->
 				<button 
 					class="submit-button" 
 					on:click={submitForm}
+					disabled={loading}
 				>
 					Firma Speichern
 				</button>
@@ -183,7 +248,7 @@
   
 			<!-- RIGHT SECTION: CONTACTS -->
 			<section class="contacts-section">
-				<h2 class="section-title">Zugehörige Ansprechpartner</h2>
+				<h2 class="section-title">Kontaktauswahl</h2>
 				
 				{#if loading}
 					<div class="loading-state">
@@ -193,17 +258,20 @@
 					<div class="error-state">
 						<p>{error}</p>
 					</div>
-				{:else if contacts.length === 0}
+				{:else if allContacts.length === 0}
 					<div class="empty-state">
-						<p>Keine Ansprechpartner gefunden.</p>
+						<p>Keine Kontakte gefunden.</p>
 					</div>
 				{:else}
 					<div class="contacts-list">
-						{#each contacts as contact}
-							<div class="contact-card">
+						{#each allContacts as contact (contact.id)}
+							<div class="contact-card {contact.selected ? 'selected' : ''}" on:click={() => toggleContactSelection(contact.id)}>
 								<div class="contact-header">
 									<h3>{contact.anrede} {contact.vorname} {contact.nachname}</h3>
 									<p class="contact-role">{contact.position} - {contact.abteilung}</p>
+									{#if contact.selected}
+										<div class="selected-badge">✓</div>
+									{/if}
 								</div>
 								<div class="contact-details">
 									<p>📞 {contact.telefon || 'Nicht angegeben'}</p>
@@ -304,6 +372,18 @@
 		padding-bottom: 10px;
 		margin-bottom: 20px;
 	}
+	
+	.subsection-title {
+		color: #2c3e50;
+		margin-bottom: 10px;
+		font-size: 1.1rem;
+	}
+	
+	.help-text {
+		color: #7f8c8d;
+		font-size: 0.9rem;
+		margin-bottom: 10px;
+	}
 
 	.input-grid {
 		display: grid;
@@ -364,6 +444,84 @@
 		border: 1px solid #bdc3c7;
 		border-radius: 4px;
 	}
+	
+	/* Contact Selection */
+	.contact-selection {
+		background-color: #f8f9fa;
+		border-radius: 8px;
+		padding: 15px;
+		margin-top: 15px;
+	}
+	
+	.contacts-checkboxes {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		max-height: 200px;
+		overflow-y: auto;
+		padding: 5px;
+		border: 1px solid #e9ecef;
+		border-radius: 4px;
+		background-color: white;
+	}
+	
+	.contact-checkbox {
+		display: flex;
+		align-items: center;
+		padding: 8px;
+		border-radius: 4px;
+		transition: background-color 0.2s;
+		cursor: pointer;
+	}
+	
+	.contact-checkbox:hover {
+		background-color: #f1f5f9;
+	}
+	
+	.contact-name {
+		margin-left: 8px;
+		font-weight: 500;
+	}
+	
+	.contact-role {
+		margin-left: 8px;
+		font-size: 0.8rem;
+		color: #7f8c8d;
+	}
+	
+	/* Selected Contacts Preview */
+	.selected-preview {
+		margin-top: 15px;
+		padding: 10px;
+		background-color: #e1f5fe;
+		border-radius: 6px;
+	}
+	
+	.selected-preview h4 {
+		margin-bottom: 8px;
+		font-size: 0.9rem;
+		color: #0277bd;
+	}
+	
+	.selected-list {
+		list-style: none;
+	}
+	
+	.selected-list li {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 5px 0;
+		border-bottom: 1px dashed #b3e5fc;
+	}
+	
+	.remove-btn {
+		background: none;
+		border: none;
+		color: #e57373;
+		cursor: pointer;
+		font-weight: bold;
+	}
 
 	.submit-button {
 		background-color: #3498db;
@@ -373,10 +531,16 @@
 		border-radius: 4px;
 		cursor: pointer;
 		transition: background-color 0.3s ease;
+		margin-top: 20px;
 	}
 
 	.submit-button:hover {
 		background-color: #2980b9;
+	}
+	
+	.submit-button:disabled {
+		background-color: #95a5a6;
+		cursor: not-allowed;
 	}
 
 	/* Contacts Section */
@@ -390,6 +554,8 @@
 		display: flex;
 		flex-direction: column;
 		gap: 15px;
+		max-height: 600px;
+		overflow-y: auto;
 	}
 
 	.contact-card {
@@ -398,6 +564,19 @@
 		border-radius: 6px;
 		padding: 15px;
 		box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+		cursor: pointer;
+		transition: all 0.2s ease;
+		position: relative;
+	}
+	
+	.contact-card:hover {
+		transform: translateY(-3px);
+		box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+	}
+	
+	.contact-card.selected {
+		border-color: #3498db;
+		background-color: #ebf5fb;
 	}
 
 	.contact-header {
@@ -419,6 +598,21 @@
 	.contact-details p {
 		margin-bottom: 5px;
 		color: #34495e;
+	}
+	
+	.selected-badge {
+		position: absolute;
+		top: 10px;
+		right: 10px;
+		width: 24px;
+		height: 24px;
+		background-color: #3498db;
+		color: white;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-weight: bold;
 	}
 
 	/* Loading and Error States */

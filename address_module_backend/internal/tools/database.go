@@ -15,6 +15,9 @@ type DatabaseInterface interface {
 	SetupDatabase() error
 	InsertFirm(firm FirmParams) (int64, error)
 	InsertFirmWithContact(firm FirmParams, contactID int64) (int64, error)
+	InsertFirmWithContacts(firm FirmParams, contactIDs []int64) (int64, error)
+	InsertContactWithFirms(contact ContactParams, firmIDs []int64) (int64, error)
+	CreateContactFirmRelationship(contactID int64, firmID int64) error
 	GetUserLoginDetails(username string) *LoginDetails
 	GetUserCoins(username string) *CoinDetails
 	GetFirmsByContactID(contactID int64) ([]FirmParams, error)
@@ -25,7 +28,7 @@ type DatabaseInterface interface {
 
 // FirmParams struct matching the MySQL table
 type FirmParams struct {
-	ID        int64  // Added ID field
+	ID        int64 // Added ID field
 	Anrede    string
 	Name1     string
 	Name2     string
@@ -235,11 +238,89 @@ func (db *MySQLDB) InsertFirmWithContact(firm FirmParams, contactID int64) (int6
 	return firmID, nil
 }
 
+// InsertFirmWithContacts inserts a firm and creates relationships with multiple contacts
+func (db *MySQLDB) InsertFirmWithContacts(firm FirmParams, contactIDs []int64) (int64, error) {
+	// Begin transaction
+	tx, err := db.DB.Begin()
+	if err != nil {
+		log.Error("Failed to begin transaction: ", err)
+		return 0, err
+	}
+
+	// Step 1: Insert the firm
+	firmQuery := `
+	INSERT INTO firms (anrede, name_1, name_2, name_3, straße, land, plz, ort, telefon, email, website, kunde, lieferant, gesperrt, bemerkung, firma_typ) 
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+	firmResult, err := tx.Exec(firmQuery, firm.Anrede, firm.Name1, firm.Name2, firm.Name3, firm.Straße, firm.Land, firm.PLZ, firm.Ort, firm.Telefon, firm.Email, firm.Website, firm.Kunde, firm.Lieferant, firm.Gesperrt, firm.Bemerkung, firm.FirmaTyp)
+	if err != nil {
+		tx.Rollback()
+		log.Error("Failed to insert firm: ", err)
+		return 0, err
+	}
+
+	// Get the firm ID
+	firmID, err := firmResult.LastInsertId()
+	if err != nil {
+		tx.Rollback()
+		log.Error("Failed to get firm ID: ", err)
+		return 0, err
+	}
+
+	// Step 2: Create relationships with all contacts
+	relationQuery := `
+	INSERT INTO firms_contacts (firma_id, contact_id) 
+	VALUES (?, ?)`
+
+	for _, contactID := range contactIDs {
+		_, err = tx.Exec(relationQuery, firmID, contactID)
+		if err != nil {
+			tx.Rollback()
+			log.Error("Failed to create relationship with contact ID ", contactID, ": ", err)
+			return 0, err
+		}
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		log.Error("Failed to commit transaction: ", err)
+		return 0, err
+	}
+
+	log.WithFields(log.Fields{
+		"firm_id":     firmID,
+		"contact_ids": contactIDs,
+	}).Info("Firm inserted and relationships created successfully")
+
+	return firmID, nil
+}
+
+// CreateContactFirmRelationship creates a relationship between a contact and a firm
+func (db *MySQLDB) CreateContactFirmRelationship(contactID int64, firmID int64) error {
+	query := `
+	INSERT INTO firms_contacts (firma_id, contact_id) 
+	VALUES (?, ?)`
+
+	_, err := db.DB.Exec(query, firmID, contactID)
+	if err != nil {
+		log.Error("Failed to create relationship: ", err)
+		return err
+	}
+
+	log.WithFields(log.Fields{
+		"contact_id": contactID,
+		"firm_id":    firmID,
+	}).Info("Relationship created successfully")
+
+	return nil
+}
+
 // ContactParams struct matching the MySQL table
 type ContactParams struct {
-	ID         int64  // Added ID field
+	ID         int64 // Added ID field
 	Anrede     string
-	Name       string
+	Vorname    string
+	Nachname   string
 	Position   string
 	Telefon    string
 	Mobil      string
@@ -248,9 +329,9 @@ type ContactParams struct {
 	Geburtstag string // Store as string in YYYY-MM-DD format
 	Bemerkung  string
 	Kontotyp   string
-	FirmaID    int64 // The ID of the firm this contact belongs to
 }
 
+/*
 // InsertContact inserts contact data into MySQL and creates relationship with firm
 func (db *MySQLDB) InsertContact(contact ContactParams) (int64, error) {
 	// Begin transaction
@@ -262,7 +343,7 @@ func (db *MySQLDB) InsertContact(contact ContactParams) (int64, error) {
 
 	// Step 1: Insert the contact
 	contactQuery := `
-	INSERT INTO contacts (anrede, name, position, telefon, mobil, email, abteilung, geburtstag, bemerkung, kontotyp) 
+	INSERT INTO contacts (anrede, name, position, telefon, mobil, email, abteilung, geburtstag, bemerkung, kontotyp)
 	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	contactResult, err := tx.Exec(contactQuery,
@@ -293,7 +374,7 @@ func (db *MySQLDB) InsertContact(contact ContactParams) (int64, error) {
 
 	// Step 2: Create relationship with firm
 	relationQuery := `
-	INSERT INTO firms_contacts (firma_id, contact_id) 
+	INSERT INTO firms_contacts (firma_id, contact_id)
 	VALUES (?, ?)`
 
 	_, err = tx.Exec(relationQuery, contact.FirmaID, contactID)
@@ -308,6 +389,75 @@ func (db *MySQLDB) InsertContact(contact ContactParams) (int64, error) {
 		log.Error("Failed to commit transaction: ", err)
 		return 0, err
 	}
+
+	return contactID, nil
+}
+*/
+// InsertContactWithFirms inserts a contact and creates relationships with multiple firms
+func (db *MySQLDB) InsertContactWithFirms(contact ContactParams, firmIDs []int64) (int64, error) {
+	// Begin transaction
+	tx, err := db.DB.Begin()
+	if err != nil {
+		log.Error("Failed to begin transaction: ", err)
+		return 0, err
+	}
+
+	// Step 1: Insert the contact
+	contactQuery := `
+	INSERT INTO contacts (anrede, vorname, nachname, position, telefon, mobil, email, abteilung, geburtstag, bemerkung, kontotyp) 
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+	contactResult, err := tx.Exec(contactQuery,
+		contact.Anrede,
+		contact.Vorname,
+		contact.Nachname,
+		contact.Position,
+		contact.Telefon,
+		contact.Mobil,
+		contact.Email,
+		contact.Abteilung,
+		contact.Geburtstag,
+		contact.Bemerkung,
+		contact.Kontotyp)
+
+	if err != nil {
+		tx.Rollback()
+		log.Error("Failed to insert contact: ", err)
+		return 0, err
+	}
+
+	// Get the contact ID
+	contactID, err := contactResult.LastInsertId()
+	if err != nil {
+		tx.Rollback()
+		log.Error("Failed to get contact ID: ", err)
+		return 0, err
+	}
+
+	// Step 2: Create relationships with all firms
+	relationQuery := `
+	INSERT INTO firms_contacts (firma_id, contact_id) 
+	VALUES (?, ?)`
+
+	for _, firmID := range firmIDs {
+		_, err = tx.Exec(relationQuery, firmID, contactID)
+		if err != nil {
+			tx.Rollback()
+			log.Error("Failed to create relationship with firm ID ", firmID, ": ", err)
+			return 0, err
+		}
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		log.Error("Failed to commit transaction: ", err)
+		return 0, err
+	}
+
+	log.WithFields(log.Fields{
+		"contact_id": contactID,
+		"firm_ids":   firmIDs,
+	}).Info("Contact inserted and relationships created successfully")
 
 	return contactID, nil
 }
@@ -351,46 +501,6 @@ func (db *MySQLDB) GetFirmsByContactID(contactID int64) ([]FirmParams, error) {
 	}
 
 	return firms, nil
-}
-
-// GetContactsByFirmID retrieves all contacts associated with a specific firm
-func (db *MySQLDB) GetContactsByFirmID(firmID int64) ([]ContactParams, error) {
-	query := `
-	SELECT c.id, c.anrede, c.name, c.position, c.telefon, c.mobil, 
-	       c.email, c.abteilung, c.geburtstag, c.bemerkung, c.kontotyp
-	FROM contacts c
-	JOIN firms_contacts fc ON c.id = fc.contact_id
-	WHERE fc.firma_id = ?`
-
-	rows, err := db.DB.Query(query, firmID)
-	if err != nil {
-		log.Error("Failed to query contacts by firm ID: ", err)
-		return nil, err
-	}
-	defer rows.Close()
-
-	var contacts []ContactParams
-	for rows.Next() {
-		var contact ContactParams
-		err := rows.Scan(
-			&contact.ID, &contact.Anrede, &contact.Name, &contact.Position,
-			&contact.Telefon, &contact.Mobil, &contact.Email, &contact.Abteilung,
-			&contact.Geburtstag, &contact.Bemerkung, &contact.Kontotyp,
-		)
-		if err != nil {
-			log.Error("Failed to scan contact row: ", err)
-			return nil, err
-		}
-		contact.FirmaID = firmID // Set the firm ID in the contact
-		contacts = append(contacts, contact)
-	}
-
-	if err = rows.Err(); err != nil {
-		log.Error("Error during rows iteration: ", err)
-		return nil, err
-	}
-
-	return contacts, nil
 }
 
 // GetAllFirms retrieves all firms from the database
@@ -452,8 +562,8 @@ func (db *MySQLDB) GetAllContacts() ([]ContactParams, error) {
 	for rows.Next() {
 		var contact ContactParams
 		err := rows.Scan(
-			&contact.ID, &contact.Anrede, &contact.Name, &contact.Position, 
-			&contact.Telefon, &contact.Mobil, &contact.Email, &contact.Abteilung, 
+			&contact.ID, &contact.Anrede, &contact.Vorname, &contact.Nachname, &contact.Position,
+			&contact.Telefon, &contact.Mobil, &contact.Email, &contact.Abteilung,
 			&contact.Geburtstag, &contact.Bemerkung, &contact.Kontotyp,
 		)
 		if err != nil {
@@ -524,18 +634,17 @@ func (db *MySQLDB) InsertTestData() error {
 
 	// Contacts data with truncated kontotyp
 	contactQuery := `
-		INSERT INTO contacts (anrede, name, position, telefon, mobil, email, abteilung, geburtstag, bemerkung, kontotyp)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+		INSERT INTO contacts (anrede, vorname, nachname, position, telefon, mobil, email, abteilung, geburtstag, bemerkung, kontotyp)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 	`
 	contacts := [][]interface{}{
-		{"Herr", "Max Mustermann", "Vertriebsleiter", "+49 30 123457", "+49 170 1234567", "max.mustermann@musterfirma.de", "Vertrieb", "1985-04-12", "Hauptansprechpartner für Vertrieb", "K"}, // Changed from "Kunde"
-		{"Frau", "Lisa Meier", "IT-Projektmanagerin", "+49 89 987655", "+49 172 9876543", "lisa.meier@techsolutions.de", "Projektmanagement", "1990-09-25", "Leitet Softwareprojekte", "L"},    // Changed from "Lieferant"
-		{"Herr", "Johann Schmidt", "Einkaufsleiter", "+49 221 456788", "", "johann.schmidt@baustoffe-schmidt.de", "Einkauf", "1978-06-30", "Verantwortlich für Materialbeschaffung", "L"},
-		{"Herr", "Michael König", "Key Account Manager", "+49 30 7654321", "+49 172 7654321", "michael.koenig@musterfirma.de", "Vertrieb", "1982-11-05", "Betreut Großkunden", "K"},
-		{"Frau", "Anna Weber", "Kundensupport", "+49 30 2345678", "+49 173 2345678", "anna.weber@musterfirma.de", "Support", "1995-07-20", "Support für Geschäftskunden", "K"},
-		{"Frau", "Sarah Bauer", "Finanzleiterin", "+49 89 1234599", "+49 175 1234599", "sarah.bauer@finanzexperten.de", "Finanzen", "1983-03-15", "Buchhaltung und Finanzen", "L"},
+		{"Herr", "Max", "Mustermann", "Vertriebsleiter", "+49 30 123457", "+49 170 1234567", "max.mustermann@musterfirma.de", "Vertrieb", "1985-04-12", "Hauptansprechpartner für Vertrieb", "K"},
+		{"Frau", "Lisa", "Meier", "IT-Projektmanagerin", "+49 89 987655", "+49 172 9876543", "lisa.meier@techsolutions.de", "Projektmanagement", "1990-09-25", "Leitet Softwareprojekte", "L"},
+		{"Herr", "Johann", "Schmidt", "Einkaufsleiter", "+49 221 456788", "", "johann.schmidt@baustoffe-schmidt.de", "Einkauf", "1978-06-30", "Verantwortlich für Materialbeschaffung", "L"},
+		{"Herr", "Michael", "König", "Key Account Manager", "+49 30 7654321", "+49 172 7654321", "michael.koenig@musterfirma.de", "Vertrieb", "1982-11-05", "Betreut Großkunden", "K"},
+		{"Frau", "Anna", "Weber", "Kundensupport", "+49 30 2345678", "+49 173 2345678", "anna.weber@musterfirma.de", "Support", "1995-07-20", "Support für Geschäftskunden", "K"},
+		{"Frau", "Sarah", "Bauer", "Finanzleiterin", "+49 89 1234599", "+49 175 1234599", "sarah.bauer@finanzexperten.de", "Finanzen", "1983-03-15", "Buchhaltung und Finanzen", "L"},
 	}
-
 	// Prepare the contact insert statement
 	contactStmt, err := tx.Prepare(contactQuery)
 	if err != nil {

@@ -40,7 +40,8 @@ func GetAllContacts(w http.ResponseWriter, r *http.Request) {
 		contactResponse := api.ContactResponse{
 			ID:         contact.ID, // Include the ID
 			Anrede:     contact.Anrede,
-			Name:       contact.Name,
+			Vorname:    contact.Vorname,
+			Nachname:   contact.Nachname,
 			Position:   contact.Position,
 			Telefon:    contact.Telefon,
 			Mobil:      contact.Mobil,
@@ -56,12 +57,12 @@ func GetAllContacts(w http.ResponseWriter, r *http.Request) {
 	// Response with the list of contacts
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	
+
 	response := map[string]interface{}{
 		"contacts": contactResponses,
 		"count":    len(contactResponses),
 	}
-	
+
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		log.Error("Failed to encode response: ", err)
