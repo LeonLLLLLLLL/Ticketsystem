@@ -20,7 +20,7 @@ func main() {
 	log.SetOutput(os.Stdout)
 
 	// Initialize database connection
-	db, err := tools.NewDatabase(5, 3*time.Second)
+	db, err := tools.NewDatabase(10, 3*time.Second)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
