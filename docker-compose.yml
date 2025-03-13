@@ -1,7 +1,7 @@
 version: '3.8'
 services:
   frontend:
-    build: ./forntend
+    build: ./frontend
     container_name: frontend
     ports:
       - "8080:8080"
@@ -16,18 +16,18 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - mysql
+      - mysql_ticket_database
     environment:
-      MYSQL_HOST: mysql
+      MYSQL_HOST: mysql_ticket_database
       MYSQL_USER: user  # Changed to match MySQL user
       MYSQL_PASSWORD: password  # Changed to match MySQL password
       MYSQL_DATABASE: FirmDB
     networks:
       - mynetwork
 
-  mysql:
+  mysql_ticket_database:
     image: mysql:8.0
-    container_name: mysql
+    container_name: mysql_ticket_database
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: admin
