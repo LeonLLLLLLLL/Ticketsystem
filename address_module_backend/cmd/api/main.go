@@ -2,7 +2,6 @@ package main
 
 import (
 	"net/http"
-	"os"
 	"time"
 
 	"address_module/internal/handlers"
@@ -15,9 +14,10 @@ import (
 
 func main() {
 	// Configure logging
-	log.SetReportCaller(true)
-	log.SetFormatter(&log.JSONFormatter{})
-	log.SetOutput(os.Stdout)
+	//log.SetReportCaller(true)
+	//log.SetFormatter(&log.JSONFormatter{})
+	//log.SetOutput(os.Stdout)
+	tools.Configure()
 
 	// Initialize database connection
 	db, err := tools.NewDatabase(10, 3*time.Second)

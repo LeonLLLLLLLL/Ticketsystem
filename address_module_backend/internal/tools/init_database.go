@@ -111,6 +111,105 @@ func (db *MySQLDB) SetupPerformanceIndexes() error {
 	return nil
 }
 
+// SetupUsersTable creates the users table
+func (db *MySQLDB) SetupUsersTable() error {
+	query := `
+    CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(50) NOT NULL UNIQUE,
+        email VARCHAR(100) NOT NULL UNIQUE,
+        hashed_password VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_by INT,
+        last_login TIMESTAMP NULL,
+        FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+    );`
+
+	_, err := db.DB.Exec(query)
+	if err != nil {
+		log.Error("Failed to create users table: ", err)
+		return err
+	}
+	log.Info("Users table setup completed")
+	return nil
+}
+
+// SetupRolesTable creates the roles table
+func (db *MySQLDB) SetupRolesTable() error {
+	query := `
+    CREATE TABLE IF NOT EXISTS roles (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(50) NOT NULL UNIQUE,
+        description VARCHAR(255)
+    );`
+
+	_, err := db.DB.Exec(query)
+	if err != nil {
+		log.Error("Failed to create roles table: ", err)
+		return err
+	}
+	log.Info("Roles table setup completed")
+	return nil
+}
+
+// SetupPermissionsTable creates the permissions table
+func (db *MySQLDB) SetupPermissionsTable() error {
+	query := `
+    CREATE TABLE IF NOT EXISTS permissions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(50) NOT NULL UNIQUE,
+        description VARCHAR(255)
+    );`
+
+	_, err := db.DB.Exec(query)
+	if err != nil {
+		log.Error("Failed to create permissions table: ", err)
+		return err
+	}
+	log.Info("Permissions table setup completed")
+	return nil
+}
+
+// SetupRolePermissionsTable creates the junction table for roles and permissions
+func (db *MySQLDB) SetupRolePermissionsTable() error {
+	query := `
+    CREATE TABLE IF NOT EXISTS role_permissions (
+        role_id INT NOT NULL,
+        permission_id INT NOT NULL,
+        PRIMARY KEY (role_id, permission_id),
+        FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
+        FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
+    );`
+
+	_, err := db.DB.Exec(query)
+	if err != nil {
+		log.Error("Failed to create role_permissions junction table: ", err)
+		return err
+	}
+	log.Info("Role-Permissions junction table setup completed")
+	return nil
+}
+
+// SetupUserRolesTable creates the junction table for users and roles
+func (db *MySQLDB) SetupUserRolesTable() error {
+	query := `
+    CREATE TABLE IF NOT EXISTS user_roles (
+        user_id INT NOT NULL,
+        role_id INT NOT NULL,
+        PRIMARY KEY (user_id, role_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
+    );`
+
+	_, err := db.DB.Exec(query)
+	if err != nil {
+		log.Error("Failed to create user_roles junction table: ", err)
+		return err
+	}
+	log.Info("User-Roles junction table setup completed")
+	return nil
+}
+
 // SetupDatabase sets up all tables and indexes
 func (db *MySQLDB) SetupDatabase() error {
 	// Order matters due to foreign key constraints
@@ -118,6 +217,11 @@ func (db *MySQLDB) SetupDatabase() error {
 		db.SetupFirmsTable,
 		db.SetupContactsTable,
 		db.SetupFirmsContactsRelationTable,
+		db.SetupUsersTable,
+		db.SetupRolesTable,
+		db.SetupPermissionsTable,
+		db.SetupRolePermissionsTable,
+		db.SetupUserRolesTable,
 		//db.SetupPerformanceIndexes,
 	}
 
