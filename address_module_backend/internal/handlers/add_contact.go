@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"address_module/api"
+	"address_module/internal/model"
 	"address_module/internal/tools"
 	"encoding/json"
 	"errors"
@@ -22,7 +23,7 @@ func AddContact(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Decode request body
-	var params api.ContactParams
+	var params model.ContactParams
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&params)
 	if err != nil {

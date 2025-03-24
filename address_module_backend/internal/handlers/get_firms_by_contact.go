@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"address_module/api"
+	"address_module/internal/model"
 	"address_module/internal/tools"
 	"encoding/json"
 	"errors"
@@ -55,9 +56,9 @@ func GetFirmsByContactID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert tools.FirmParams to api.FirmResponse objects
-	var firmResponses []api.FirmResponse
+	var firmResponses []model.FirmResponse
 	for _, firm := range firms {
-		firmResponse := api.FirmResponse{
+		firmResponse := model.FirmResponse{
 			ID:        firm.ID, // Include the ID
 			Anrede:    firm.Anrede,
 			Name1:     firm.Name1,
@@ -82,12 +83,12 @@ func GetFirmsByContactID(w http.ResponseWriter, r *http.Request) {
 	// Response with the list of firms
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	
+
 	response := map[string]interface{}{
 		"firms": firmResponses,
 		"count": len(firmResponses),
 	}
-	
+
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		log.Error("Failed to encode response: ", err)

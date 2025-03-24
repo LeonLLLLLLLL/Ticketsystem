@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"address_module/api"
+	"address_module/internal/model"
 	"address_module/internal/tools" // Import the database package
 	"encoding/json"
 	"errors"
@@ -21,7 +22,7 @@ func AddFirm(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Decode request body
-	var params api.FirmParams
+	var params model.FirmParams
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&params)
 	if err != nil {
@@ -118,14 +119,14 @@ func AddFirm(w http.ResponseWriter, r *http.Request) {
 		"bemerkung": params.Bemerkung,
 		"firma_typ": params.FirmaTyp,
 	}
-	
+
 	// Add contact relationship info to logs
 	if len(params.ContactIDs) > 0 {
 		logFields["contact_ids"] = params.ContactIDs
 	} else if params.ContactID > 0 {
 		logFields["contact_id"] = params.ContactID
 	}
-	
+
 	log.WithFields(logFields).Info("Firm successfully registered in database")
 
 	// Respond with success
@@ -135,14 +136,14 @@ func AddFirm(w http.ResponseWriter, r *http.Request) {
 		"message": "Firm successfully registered",
 		"firm_id": firmID,
 	}
-	
+
 	// Add relationship info to response
 	if len(params.ContactIDs) > 0 {
 		response["contact_ids"] = params.ContactIDs
 	} else if params.ContactID > 0 {
 		response["contact_id"] = params.ContactID
 	}
-	
+
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		log.Error("Failed to encode response: ", err)

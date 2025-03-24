@@ -30,16 +30,16 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize database schema: %v", err)
 	}
+	/*
+		err = db.InsertTestData()
+		if err != nil {
+			log.Fatal("Failed to insert test data:", err)
+		}
 
-	err = db.InsertTestData()
-	if err != nil {
-		log.Fatal("Failed to insert test data:", err)
-	}
-
-	err = db.InsertUserRolesTestData()
-	if err != nil {
-		log.Fatal("Faild to instert test data:", err)
-	}
+		err = db.InsertUserRolesTestData()
+		if err != nil {
+			log.Fatal("Faild to instert test data:", err)
+		}*/
 	defer db.Close()
 
 	// Create a new router

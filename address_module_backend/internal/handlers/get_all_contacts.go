@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"address_module/api"
+	"address_module/internal/model"
 	"address_module/internal/tools"
 	"encoding/json"
 	"net/http"
@@ -35,9 +36,9 @@ func GetAllContacts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert tools.ContactParams to api.ContactResponse objects
-	var contactResponses []api.ContactResponse
+	var contactResponses []model.ContactResponse
 	for _, contact := range contacts {
-		contactResponse := api.ContactResponse{
+		contactResponse := model.ContactResponse{
 			ID:         contact.ID, // Include the ID
 			Anrede:     contact.Anrede,
 			Vorname:    contact.Vorname,
