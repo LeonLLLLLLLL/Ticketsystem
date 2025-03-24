@@ -24,7 +24,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
-	defer db.Close()
 
 	// Initialize database schema
 	err = db.SetupDatabase()
@@ -32,10 +31,16 @@ func main() {
 		log.Fatalf("Failed to initialize database schema: %v", err)
 	}
 
-	/*err = db.InsertTestData()
+	err = db.InsertTestData()
 	if err != nil {
 		log.Fatal("Failed to insert test data:", err)
-	}*/
+	}
+
+	err = db.InsertUserRolesTestData()
+	if err != nil {
+		log.Fatal("Faild to instert test data:", err)
+	}
+	defer db.Close()
 
 	// Create a new router
 	r := chi.NewRouter()

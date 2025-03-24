@@ -691,3 +691,215 @@ func (db *MySQLDB) InsertTestData() error {
 	log.Println("Test data successfully inserted into database.")
 	return nil
 }
+
+func (db *MySQLDB) InsertUserRolesTestData() error {
+	// Start a transaction to ensure data integrity
+	tx, err := db.DB.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %v", err)
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+			return
+		}
+		err = tx.Commit()
+	}()
+
+	// Insert roles data
+	roleQuery := `
+		INSERT INTO roles (name, description)
+		VALUES (?, ?);
+	`
+	roles := [][]interface{}{
+		{"admin", "Full system access and control"},
+		{"manager", "Department level control and reporting access"},
+		{"user", "Standard user access to application"},
+		{"guest", "Limited read-only access to public resources"},
+		{"customer_support", "Access to customer facing tools and information"},
+	}
+
+	// Prepare the role insert statement
+	roleStmt, err := tx.Prepare(roleQuery)
+	if err != nil {
+		return fmt.Errorf("failed to prepare roles statement: %v", err)
+	}
+	defer roleStmt.Close()
+
+	// Insert roles with prepared statement
+	var roleIDs []int64
+	for _, role := range roles {
+		result, err := roleStmt.Exec(role...)
+		if err != nil {
+			return fmt.Errorf("error inserting role %v: %v", role[0], err)
+		}
+		roleID, err := result.LastInsertId()
+		if err != nil {
+			return fmt.Errorf("error getting last insert ID for role %v: %v", role[0], err)
+		}
+		roleIDs = append(roleIDs, roleID)
+	}
+
+	// Insert permissions data
+	permQuery := `
+		INSERT INTO permissions (name, description)
+		VALUES (?, ?);
+	`
+	permissions := [][]interface{}{
+		{"users_create", "Create new user accounts"},
+		{"users_read", "View user account details"},
+		{"users_update", "Modify user account data"},
+		{"users_delete", "Delete user accounts"},
+		{"roles_manage", "Create, edit, or delete user roles"},
+		{"reports_view", "Access system reports"},
+		{"reports_export", "Export system reports"},
+		{"settings_edit", "Modify system configuration"},
+		{"customers_view", "View customer records"},
+		{"customers_edit", "Modify customer records"},
+	}
+
+	// Prepare the permission insert statement
+	permStmt, err := tx.Prepare(permQuery)
+	if err != nil {
+		return fmt.Errorf("failed to prepare permissions statement: %v", err)
+	}
+	defer permStmt.Close()
+
+	// Insert permissions with prepared statement
+	var permIDs []int64
+	for _, perm := range permissions {
+		result, err := permStmt.Exec(perm...)
+		if err != nil {
+			return fmt.Errorf("error inserting permission %v: %v", perm[0], err)
+		}
+		permID, err := result.LastInsertId()
+		if err != nil {
+			return fmt.Errorf("error getting last insert ID for permission %v: %v", perm[0], err)
+		}
+		permIDs = append(permIDs, permID)
+	}
+
+	// Insert users data
+	// Note: In a real application, you would use proper password hashing
+	// using packages like bcrypt, argon2, etc.
+	hashedPassword := "password123" // hash for "password123"
+	userQuery := `
+		INSERT INTO users (username, email, hashed_password, created_at)
+		VALUES (?, ?, ?, NOW());
+	`
+	users := [][]interface{}{
+		{"admin", "admin@example.com", hashedPassword},
+		{"jdoe", "john.doe@example.com", hashedPassword},
+		{"asmith", "anna.smith@example.com", hashedPassword},
+		{"mjones", "mark.jones@example.com", hashedPassword},
+		{"lchen", "lily.chen@example.com", hashedPassword},
+	}
+
+	// Prepare the user insert statement
+	userStmt, err := tx.Prepare(userQuery)
+	if err != nil {
+		return fmt.Errorf("failed to prepare users statement: %v", err)
+	}
+	defer userStmt.Close()
+
+	// Insert users with prepared statement
+	var userIDs []int64
+	for _, user := range users {
+		result, err := userStmt.Exec(user...)
+		if err != nil {
+			return fmt.Errorf("error inserting user %v: %v", user[0], err)
+		}
+		userID, err := result.LastInsertId()
+		if err != nil {
+			return fmt.Errorf("error getting last insert ID for user %v: %v", user[0], err)
+		}
+		userIDs = append(userIDs, userID)
+
+		// Update the first user to have created_by set to itself (bootstrap admin)
+		if len(userIDs) == 1 {
+			_, err = tx.Exec("UPDATE users SET created_by = ? WHERE id = ?", userID, userID)
+			if err != nil {
+				return fmt.Errorf("error updating admin user's created_by: %v", err)
+			}
+		} else {
+			// Set all other users to be created by the admin
+			_, err = tx.Exec("UPDATE users SET created_by = ? WHERE id = ?", userIDs[0], userID)
+			if err != nil {
+				return fmt.Errorf("error updating user's created_by: %v", err)
+			}
+		}
+	}
+
+	// Insert role-permission relationships
+	rolePermQuery := `
+		INSERT INTO role_permissions (role_id, permission_id)
+		VALUES (?, ?);
+	`
+	rolePermStmt, err := tx.Prepare(rolePermQuery)
+	if err != nil {
+		return fmt.Errorf("failed to prepare role_permissions statement: %v", err)
+	}
+	defer rolePermStmt.Close()
+
+	// Define role-permission mappings
+	rolePermMappings := []struct {
+		roleIndex int
+		permIndex int
+	}{
+		// Admin has all permissions
+		{0, 0}, {0, 1}, {0, 2}, {0, 3}, {0, 4}, {0, 5}, {0, 6}, {0, 7}, {0, 8}, {0, 9},
+		// Manager has most permissions except delete users and manage roles
+		{1, 0}, {1, 1}, {1, 2}, {1, 5}, {1, 6}, {1, 7}, {1, 8}, {1, 9},
+		// Regular user has basic permissions
+		{2, 1}, {2, 5}, {2, 8},
+		// Guest has minimal permissions
+		{3, 1}, {3, 8},
+		// Customer support has customer-focused permissions
+		{4, 1}, {4, 8}, {4, 9},
+	}
+
+	// Insert role-permission relationships
+	for _, mapping := range rolePermMappings {
+		_, err := rolePermStmt.Exec(roleIDs[mapping.roleIndex], permIDs[mapping.permIndex])
+		if err != nil {
+			return fmt.Errorf("error inserting role-permission mapping role_id=%d, perm_id=%d: %v",
+				roleIDs[mapping.roleIndex], permIDs[mapping.permIndex], err)
+		}
+	}
+
+	// Insert user-role relationships
+	userRoleQuery := `
+		INSERT INTO user_roles (user_id, role_id)
+		VALUES (?, ?);
+	`
+	userRoleStmt, err := tx.Prepare(userRoleQuery)
+	if err != nil {
+		return fmt.Errorf("failed to prepare user_roles statement: %v", err)
+	}
+	defer userRoleStmt.Close()
+
+	// Define user-role mappings
+	userRoleMappings := []struct {
+		userIndex int
+		roleIndex int
+	}{
+		{0, 0}, // admin has admin role
+		{1, 1}, // John Doe has manager role
+		{2, 2}, // Anna Smith has user role
+		{3, 2}, // Mark Jones has user role
+		{3, 4}, // Mark Jones also has customer_support role
+		{4, 3}, // Lily Chen has guest role
+	}
+
+	// Insert user-role relationships
+	for _, mapping := range userRoleMappings {
+		_, err := userRoleStmt.Exec(userIDs[mapping.userIndex], roleIDs[mapping.roleIndex])
+		if err != nil {
+			return fmt.Errorf("error inserting user-role mapping user_id=%d, role_id=%d: %v",
+				userIDs[mapping.userIndex], roleIDs[mapping.roleIndex], err)
+		}
+	}
+
+	log.Info("User, role, and permission test data successfully inserted into database.")
+	return nil
+}
