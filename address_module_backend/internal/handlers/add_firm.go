@@ -3,7 +3,7 @@ package handlers
 import (
 	"address_module/api"
 	"address_module/internal/model"
-	"address_module/internal/tools" // Import the database package
+	"address_module/internal/tools"
 	"encoding/json"
 	"errors"
 	"net/http"

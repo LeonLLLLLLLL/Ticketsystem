@@ -573,6 +573,334 @@ func (db *MySQLDB) GetAllContacts() ([]ContactParams, error) {
 	return contacts, nil
 }
 
+type User struct {
+	ID             int64      `json:"id"`
+	Username       string     `json:"username"`
+	Email          string     `json:"email"`
+	HashedPassword string     `json:"hashed_password"`
+	CreatedAt      time.Time  `json:"created_at"`
+	CreatedBy      *int64     `json:"created_by,omitempty"`
+	LastLogin      *time.Time `json:"last_login,omitempty"`
+}
+
+type Role struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+type Permission struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+type RolePermission struct {
+	RoleID       int64 `json:"role_id"`
+	PermissionID int64 `json:"permission_id"`
+}
+
+type UserRole struct {
+	UserID int64 `json:"user_id"`
+	RoleID int64 `json:"role_id"`
+}
+
+func (db *MySQLDB) InsertUser(user User) (int64, error) {
+	query := `
+	INSERT INTO users (username, email, hashed_password, created_by, last_login)
+	VALUES (?, ?, ?, ?, ?)`
+
+	result, err := db.DB.Exec(query, user.Username, user.Email, user.HashedPassword, user.CreatedBy, user.LastLogin)
+	if err != nil {
+		log.Error("Failed to insert user: ", err)
+		return 0, err
+	}
+
+	userID, err := result.LastInsertId()
+	if err != nil {
+		log.Error("Failed to get user ID: ", err)
+		return 0, err
+	}
+
+	log.Info("User inserted successfully with ID: ", userID)
+	return userID, nil
+}
+
+// GetUserByID fetches a user by ID
+func (db *MySQLDB) GetUserByID(id int64) (*User, error) {
+	query := `SELECT id, username, email, hashed_password, created_at, created_by, last_login FROM users WHERE id = ?`
+	row := db.DB.QueryRow(query, id)
+
+	var user User
+	err := row.Scan(&user.ID, &user.Username, &user.Email, &user.HashedPassword, &user.CreatedAt, &user.CreatedBy, &user.LastLogin)
+	if err != nil {
+		log.Error("Failed to get user: ", err)
+		return nil, err
+	}
+	return &user, nil
+}
+
+// UpdateUser updates user data
+func (db *MySQLDB) UpdateUser(user User) error {
+	query := `
+	UPDATE users
+	SET username = ?, email = ?, hashed_password = ?, created_by = ?, last_login = ?
+	WHERE id = ?`
+
+	_, err := db.DB.Exec(query, user.Username, user.Email, user.HashedPassword, user.CreatedBy, user.LastLogin, user.ID)
+	if err != nil {
+		log.Error("Failed to update user: ", err)
+		return err
+	}
+
+	log.Info("User updated successfully")
+	return nil
+}
+
+// DeleteUser deletes a user by ID
+func (db *MySQLDB) DeleteUser(id int64) error {
+	query := `DELETE FROM users WHERE id = ?`
+
+	_, err := db.DB.Exec(query, id)
+	if err != nil {
+		log.Error("Failed to delete user: ", err)
+		return err
+	}
+
+	log.Info("User deleted successfully")
+	return nil
+}
+
+func (db *MySQLDB) InsertRole(role Role) (int64, error) {
+	query := `
+	INSERT INTO roles (name, description)
+	VALUES (?, ?)`
+
+	result, err := db.DB.Exec(query, role.Name, role.Description)
+	if err != nil {
+		log.Error("Failed to insert role: ", err)
+		return 0, err
+	}
+
+	roleID, err := result.LastInsertId()
+	if err != nil {
+		log.Error("Failed to get role ID: ", err)
+		return 0, err
+	}
+
+	log.Info("Role inserted successfully with ID: ", roleID)
+	return roleID, nil
+}
+
+// GetRoleByID fetches a role by ID
+func (db *MySQLDB) GetRoleByID(id int64) (*Role, error) {
+	query := `SELECT id, name, description FROM roles WHERE id = ?`
+	row := db.DB.QueryRow(query, id)
+
+	var role Role
+	err := row.Scan(&role.ID, &role.Name, &role.Description)
+	if err != nil {
+		log.Error("Failed to get role: ", err)
+		return nil, err
+	}
+	return &role, nil
+}
+
+// UpdateRole updates a role
+func (db *MySQLDB) UpdateRole(role Role) error {
+	query := `UPDATE roles SET name = ?, description = ? WHERE id = ?`
+
+	_, err := db.DB.Exec(query, role.Name, role.Description, role.ID)
+	if err != nil {
+		log.Error("Failed to update role: ", err)
+		return err
+	}
+	log.Info("Role updated successfully")
+	return nil
+}
+
+// DeleteRole deletes a role by ID
+func (db *MySQLDB) DeleteRole(id int64) error {
+	query := `DELETE FROM roles WHERE id = ?`
+
+	_, err := db.DB.Exec(query, id)
+	if err != nil {
+		log.Error("Failed to delete role: ", err)
+		return err
+	}
+	log.Info("Role deleted successfully")
+	return nil
+}
+
+func (db *MySQLDB) InsertPermission(permission Permission) (int64, error) {
+	query := `
+	INSERT INTO permissions (name, description)
+	VALUES (?, ?)`
+
+	result, err := db.DB.Exec(query, permission.Name, permission.Description)
+	if err != nil {
+		log.Error("Failed to insert permission: ", err)
+		return 0, err
+	}
+
+	permID, err := result.LastInsertId()
+	if err != nil {
+		log.Error("Failed to get permission ID: ", err)
+		return 0, err
+	}
+
+	log.Info("Permission inserted successfully with ID: ", permID)
+	return permID, nil
+}
+
+// GetPermissionByID fetches a permission by ID
+func (db *MySQLDB) GetPermissionByID(id int64) (*Permission, error) {
+	query := `SELECT id, name, description FROM permissions WHERE id = ?`
+	row := db.DB.QueryRow(query, id)
+
+	var perm Permission
+	err := row.Scan(&perm.ID, &perm.Name, &perm.Description)
+	if err != nil {
+		log.Error("Failed to get permission: ", err)
+		return nil, err
+	}
+	return &perm, nil
+}
+
+// UpdatePermission updates a permission
+func (db *MySQLDB) UpdatePermission(permission Permission) error {
+	query := `UPDATE permissions SET name = ?, description = ? WHERE id = ?`
+
+	_, err := db.DB.Exec(query, permission.Name, permission.Description, permission.ID)
+	if err != nil {
+		log.Error("Failed to update permission: ", err)
+		return err
+	}
+	log.Info("Permission updated successfully")
+	return nil
+}
+
+// DeletePermission deletes a permission by ID
+func (db *MySQLDB) DeletePermission(id int64) error {
+	query := `DELETE FROM permissions WHERE id = ?`
+
+	_, err := db.DB.Exec(query, id)
+	if err != nil {
+		log.Error("Failed to delete permission: ", err)
+		return err
+	}
+	log.Info("Permission deleted successfully")
+	return nil
+}
+
+// GetUserRoles returns all roles assigned to a user
+func (db *MySQLDB) GetUserRoles(userID int64) ([]Role, error) {
+	query := `
+	SELECT r.id, r.name, r.description
+	FROM roles r
+	JOIN user_roles ur ON ur.role_id = r.id
+	WHERE ur.user_id = ?`
+
+	rows, err := db.DB.Query(query, userID)
+	if err != nil {
+		log.Error("Failed to get user roles: ", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var roles []Role
+	for rows.Next() {
+		var role Role
+		if err := rows.Scan(&role.ID, &role.Name, &role.Description); err != nil {
+			return nil, err
+		}
+		roles = append(roles, role)
+	}
+	return roles, nil
+}
+
+// DeleteUserRole deletes a user-role mapping
+func (db *MySQLDB) DeleteUserRole(userID, roleID int64) error {
+	query := `DELETE FROM user_roles WHERE user_id = ? AND role_id = ?`
+
+	_, err := db.DB.Exec(query, userID, roleID)
+	if err != nil {
+		log.Error("Failed to delete user-role mapping: ", err)
+		return err
+	}
+	log.Info("User-Role mapping deleted")
+	return nil
+}
+
+// GetRolePermissions returns all permissions assigned to a role
+func (db *MySQLDB) GetRolePermissions(roleID int64) ([]Permission, error) {
+	query := `
+	SELECT p.id, p.name, p.description
+	FROM permissions p
+	JOIN role_permissions rp ON rp.permission_id = p.id
+	WHERE rp.role_id = ?`
+
+	rows, err := db.DB.Query(query, roleID)
+	if err != nil {
+		log.Error("Failed to get role permissions: ", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var permissions []Permission
+	for rows.Next() {
+		var perm Permission
+		if err := rows.Scan(&perm.ID, &perm.Name, &perm.Description); err != nil {
+			return nil, err
+		}
+		permissions = append(permissions, perm)
+	}
+	return permissions, nil
+}
+
+// DeleteRolePermission deletes a role-permission mapping
+func (db *MySQLDB) DeleteRolePermission(roleID, permissionID int64) error {
+	query := `DELETE FROM role_permissions WHERE role_id = ? AND permission_id = ?`
+
+	_, err := db.DB.Exec(query, roleID, permissionID)
+	if err != nil {
+		log.Error("Failed to delete role-permission mapping: ", err)
+		return err
+	}
+	log.Info("Role-Permission mapping deleted")
+	return nil
+}
+
+func (db *MySQLDB) InsertRolePermission(rp RolePermission) error {
+	query := `
+	INSERT INTO role_permissions (role_id, permission_id)
+	VALUES (?, ?)`
+
+	_, err := db.DB.Exec(query, rp.RoleID, rp.PermissionID)
+	if err != nil {
+		log.Error("Failed to insert role-permission mapping: ", err)
+		return err
+	}
+
+	log.Info("Role-Permission mapping inserted successfully")
+	return nil
+}
+
+func (db *MySQLDB) InsertUserRole(ur UserRole) error {
+	query := `
+	INSERT INTO user_roles (user_id, role_id)
+	VALUES (?, ?)`
+
+	_, err := db.DB.Exec(query, ur.UserID, ur.RoleID)
+	if err != nil {
+		log.Error("Failed to insert user-role mapping: ", err)
+		return err
+	}
+
+	log.Info("User-Role mapping inserted successfully")
+	return nil
+}
+
 /*
 TEST FUNCTION REMOVE LATER!!!
 */
@@ -901,5 +1229,139 @@ func (db *MySQLDB) InsertUserRolesTestData() error {
 	}
 
 	log.Info("User, role, and permission test data successfully inserted into database.")
+	return nil
+}
+
+func (db *MySQLDB) RunCRUDTests() error {
+	log.Info("---- Running Full CRUD Tests ----")
+
+	// Insert a test user
+	testUser := User{
+		Username:       "testuser1",
+		Email:          "testuser1@example.com",
+		HashedPassword: "hashed_pass_123",
+	}
+	userID, err := db.InsertUser(testUser)
+	if err != nil {
+		return err
+	}
+	log.Infof("Inserted User ID: %d", userID)
+
+	// Insert a test role
+	testRole := Role{
+		Name:        "admin",
+		Description: "Administrator role",
+	}
+	roleID, err := db.InsertRole(testRole)
+	if err != nil {
+		return err
+	}
+	log.Infof("Inserted Role ID: %d", roleID)
+
+	// Insert a test permission
+	testPerm := Permission{
+		Name:        "read_all",
+		Description: "Permission to read everything",
+	}
+	permID, err := db.InsertPermission(testPerm)
+	if err != nil {
+		return err
+	}
+	log.Infof("Inserted Permission ID: %d", permID)
+
+	// Assign role to user
+	err = db.InsertUserRole(UserRole{UserID: userID, RoleID: roleID})
+	if err != nil {
+		return err
+	}
+	log.Infof("Assigned Role ID %d to User ID %d", roleID, userID)
+
+	// Assign permission to role
+	err = db.InsertRolePermission(RolePermission{RoleID: roleID, PermissionID: permID})
+	if err != nil {
+		return err
+	}
+	log.Infof("Assigned Permission ID %d to Role ID %d", permID, roleID)
+
+	// Read user and their roles
+	user, err := db.GetUserByID(userID)
+	if err != nil {
+		return err
+	}
+	log.Infof("Fetched User: %+v", user)
+
+	roles, err := db.GetUserRoles(userID)
+	if err != nil {
+		return err
+	}
+	log.Infof("User Roles: %+v", roles)
+
+	// Read role and its permissions
+	perms, err := db.GetRolePermissions(roleID)
+	if err != nil {
+		return err
+	}
+	log.Infof("Role Permissions: %+v", perms)
+
+	// Update the user
+	user.Username = "updateduser"
+	user.Email = "updateduser@example.com"
+	err = db.UpdateUser(*user)
+	if err != nil {
+		return err
+	}
+	log.Info("Updated User")
+
+	// Update role
+	testRole.ID = roleID
+	testRole.Description = "Updated admin role"
+	err = db.UpdateRole(testRole)
+	if err != nil {
+		return err
+	}
+	log.Info("Updated Role")
+
+	// Update permission
+	testPerm.ID = permID
+	testPerm.Description = "Updated permission to read everything"
+	err = db.UpdatePermission(testPerm)
+	if err != nil {
+		return err
+	}
+	log.Info("Updated Permission")
+
+	// Cleanup: Delete mappings first
+	err = db.DeleteUserRole(userID, roleID)
+	if err != nil {
+		return err
+	}
+	log.Infof("Deleted user-role mapping")
+
+	err = db.DeleteRolePermission(roleID, permID)
+	if err != nil {
+		return err
+	}
+	log.Infof("Deleted role-permission mapping")
+
+	// Delete entities
+	err = db.DeletePermission(permID)
+	if err != nil {
+		return err
+	}
+	log.Infof("Deleted Permission")
+
+	err = db.DeleteRole(roleID)
+	if err != nil {
+		return err
+	}
+	log.Infof("Deleted Role")
+
+	err = db.DeleteUser(userID)
+	if err != nil {
+		return err
+	}
+	log.Infof("Deleted User")
+
+	log.Info("---- CRUD Tests Completed Successfully ✅ ----")
 	return nil
 }

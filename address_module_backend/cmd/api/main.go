@@ -40,6 +40,12 @@ func main() {
 		if err != nil {
 			log.Fatal("Faild to instert test data:", err)
 		}*/
+
+	err = db.RunCRUDTests()
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+
 	defer db.Close()
 
 	// Create a new router
