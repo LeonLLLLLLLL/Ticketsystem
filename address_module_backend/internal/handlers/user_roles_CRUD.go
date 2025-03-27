@@ -12,13 +12,13 @@ import (
 // AssignUserRole assigns a role to a user
 func AssignUserRole(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		ErrorResponse(w, http.StatusMethodNotAllowed, "invalid_method", "Only POST allowed")
 		return
 	}
 
 	var ur model.UserRole
 	if err := json.NewDecoder(r.Body).Decode(&ur); err != nil {
-		http.Error(w, "Invalid input", http.StatusBadRequest)
+		ErrorResponse(w, http.StatusBadRequest, "bad_request", "Invalid JSON input")
 		return
 	}
 
@@ -30,7 +30,7 @@ func AssignUserRole(w http.ResponseWriter, r *http.Request) {
 
 	if err := db.InsertUserRole(ur); err != nil {
 		log.Errorf("Failed to assign user-role: %v", err)
-		http.Error(w, "Assignment failed", http.StatusInternalServerError)
+		ErrorResponse(w, http.StatusInternalServerError, "db_error", "Could not assign role to user")
 		return
 	}
 
@@ -43,7 +43,7 @@ func AssignUserRole(w http.ResponseWriter, r *http.Request) {
 // RemoveUserRole deletes a user-role mapping
 func RemoveUserRole(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		ErrorResponse(w, http.StatusMethodNotAllowed, "invalid_method", "Only DELETE allowed")
 		return
 	}
 
@@ -54,7 +54,7 @@ func RemoveUserRole(w http.ResponseWriter, r *http.Request) {
 	roleID, err2 := strconv.ParseInt(roleIDStr, 10, 64)
 
 	if err1 != nil || err2 != nil {
-		http.Error(w, "Invalid user_id or role_id", http.StatusBadRequest)
+		ErrorResponse(w, http.StatusBadRequest, "invalid_id", "Invalid user_id or role_id")
 		return
 	}
 
@@ -66,9 +66,12 @@ func RemoveUserRole(w http.ResponseWriter, r *http.Request) {
 
 	if err := db.DeleteUserRole(userID, roleID); err != nil {
 		log.Errorf("Failed to remove user-role: %v", err)
-		http.Error(w, "Removal failed", http.StatusInternalServerError)
+		ErrorResponse(w, http.StatusInternalServerError, "db_error", "Could not remove user-role mapping")
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "User-role mapping removed successfully",
+	})
 }

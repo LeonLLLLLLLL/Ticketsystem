@@ -1,25 +1,25 @@
 package handlers
 
 import (
-	"address_module/api"
 	"address_module/internal/model"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
+	"github.com/go-sql-driver/mysql"
 	log "github.com/sirupsen/logrus"
 )
 
-// AddRole creates a new role
 func AddRole(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		ErrorResponse(w, http.StatusMethodNotAllowed, "invalid_method", "Only POST allowed")
 		return
 	}
 
 	var role model.Role
 	if err := json.NewDecoder(r.Body).Decode(&role); err != nil {
-		http.Error(w, "Invalid input", http.StatusBadRequest)
+		ErrorResponse(w, http.StatusBadRequest, "bad_request", "Invalid JSON input")
 		return
 	}
 
@@ -31,9 +31,14 @@ func AddRole(w http.ResponseWriter, r *http.Request) {
 
 	roleID, err := db.InsertRole(role)
 	if err != nil {
-		log.Errorf("Failed to insert role: %v", err)
-		http.Error(w, "Failed to insert role", http.StatusInternalServerError)
-		api.RequestErrorHandler(w, err)
+		var mysqlErr *mysql.MySQLError
+		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+			ErrorResponse(w, http.StatusConflict, "duplicate_entry", "Role name must be unique")
+			return
+		}
+
+		log.Errorf("Insert role failed: %v", err)
+		ErrorResponse(w, http.StatusInternalServerError, "db_error", "Could not insert role")
 		return
 	}
 
@@ -42,17 +47,21 @@ func AddRole(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(role)
 }
 
-// GetRoleByID fetches a role by ID
 func GetRoleByID(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		ErrorResponse(w, http.StatusMethodNotAllowed, "invalid_method", "Only GET allowed")
 		return
 	}
 
 	idStr := r.URL.Query().Get("id")
+	if idStr == "" {
+		ErrorResponse(w, http.StatusBadRequest, "missing_parameter", "Missing role ID")
+		return
+	}
+
 	roleID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid role ID", http.StatusBadRequest)
+		ErrorResponse(w, http.StatusBadRequest, "invalid_id", "Role ID must be a number")
 		return
 	}
 
@@ -64,8 +73,7 @@ func GetRoleByID(w http.ResponseWriter, r *http.Request) {
 
 	role, err := db.GetRoleByID(roleID)
 	if err != nil {
-		log.Errorf("Failed to get role: %v", err)
-		http.Error(w, "Role not found", http.StatusNotFound)
+		ErrorResponse(w, http.StatusNotFound, "not_found", "Role not found")
 		return
 	}
 
@@ -73,16 +81,15 @@ func GetRoleByID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(role)
 }
 
-// UpdateRole updates a role
 func UpdateRole(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		ErrorResponse(w, http.StatusMethodNotAllowed, "invalid_method", "Only PUT allowed")
 		return
 	}
 
 	var role model.Role
 	if err := json.NewDecoder(r.Body).Decode(&role); err != nil {
-		http.Error(w, "Invalid input", http.StatusBadRequest)
+		ErrorResponse(w, http.StatusBadRequest, "bad_request", "Invalid JSON input")
 		return
 	}
 
@@ -93,25 +100,32 @@ func UpdateRole(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	if err := db.UpdateRole(role); err != nil {
-		log.Errorf("Failed to update role: %v", err)
-		http.Error(w, "Update failed", http.StatusInternalServerError)
+		log.Errorf("Update role failed: %v", err)
+		ErrorResponse(w, http.StatusInternalServerError, "update_failed", "Could not update role")
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Role updated successfully",
+	})
 }
 
-// DeleteRole deletes a role
 func DeleteRole(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		ErrorResponse(w, http.StatusMethodNotAllowed, "invalid_method", "Only DELETE allowed")
 		return
 	}
 
 	idStr := r.URL.Query().Get("id")
+	if idStr == "" {
+		ErrorResponse(w, http.StatusBadRequest, "missing_parameter", "Missing role ID")
+		return
+	}
+
 	roleID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid role ID", http.StatusBadRequest)
+		ErrorResponse(w, http.StatusBadRequest, "invalid_id", "Role ID must be a number")
 		return
 	}
 
@@ -122,10 +136,13 @@ func DeleteRole(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	if err := db.DeleteRole(roleID); err != nil {
-		log.Errorf("Failed to delete role: %v", err)
-		http.Error(w, "Delete failed", http.StatusInternalServerError)
+		log.Errorf("Delete role failed: %v", err)
+		ErrorResponse(w, http.StatusNotFound, "not_found", "Role not found")
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Role deleted successfully",
+	})
 }

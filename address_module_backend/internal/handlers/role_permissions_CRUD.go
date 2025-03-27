@@ -12,13 +12,13 @@ import (
 // AssignRolePermission assigns a permission to a role
 func AssignRolePermission(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		ErrorResponse(w, http.StatusMethodNotAllowed, "invalid_method", "Only POST allowed")
 		return
 	}
 
 	var rp model.RolePermission
 	if err := json.NewDecoder(r.Body).Decode(&rp); err != nil {
-		http.Error(w, "Invalid input", http.StatusBadRequest)
+		ErrorResponse(w, http.StatusBadRequest, "bad_request", "Invalid JSON input")
 		return
 	}
 
@@ -30,7 +30,7 @@ func AssignRolePermission(w http.ResponseWriter, r *http.Request) {
 
 	if err := db.InsertRolePermission(rp); err != nil {
 		log.Errorf("Failed to assign role-permission: %v", err)
-		http.Error(w, "Assignment failed", http.StatusInternalServerError)
+		ErrorResponse(w, http.StatusInternalServerError, "db_error", "Could not assign permission to role")
 		return
 	}
 
@@ -43,7 +43,7 @@ func AssignRolePermission(w http.ResponseWriter, r *http.Request) {
 // RemoveRolePermission deletes a role-permission mapping
 func RemoveRolePermission(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		ErrorResponse(w, http.StatusMethodNotAllowed, "invalid_method", "Only DELETE allowed")
 		return
 	}
 
@@ -54,7 +54,7 @@ func RemoveRolePermission(w http.ResponseWriter, r *http.Request) {
 	permID, err2 := strconv.ParseInt(permIDStr, 10, 64)
 
 	if err1 != nil || err2 != nil {
-		http.Error(w, "Invalid role_id or permission_id", http.StatusBadRequest)
+		ErrorResponse(w, http.StatusBadRequest, "invalid_id", "Invalid role_id or permission_id")
 		return
 	}
 
@@ -66,9 +66,12 @@ func RemoveRolePermission(w http.ResponseWriter, r *http.Request) {
 
 	if err := db.DeleteRolePermission(roleID, permID); err != nil {
 		log.Errorf("Failed to remove role-permission: %v", err)
-		http.Error(w, "Removal failed", http.StatusInternalServerError)
+		ErrorResponse(w, http.StatusInternalServerError, "db_error", "Could not remove role-permission mapping")
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Role-permission mapping removed successfully",
+	})
 }

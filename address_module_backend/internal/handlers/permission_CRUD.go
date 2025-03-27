@@ -3,22 +3,23 @@ package handlers
 import (
 	"address_module/internal/model"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
+	"github.com/go-sql-driver/mysql"
 	log "github.com/sirupsen/logrus"
 )
 
-// AddPermission handles creating a new permission
 func AddPermission(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		ErrorResponse(w, http.StatusMethodNotAllowed, "invalid_method", "Only POST allowed")
 		return
 	}
 
 	var perm model.Permission
 	if err := json.NewDecoder(r.Body).Decode(&perm); err != nil {
-		http.Error(w, "Invalid input", http.StatusBadRequest)
+		ErrorResponse(w, http.StatusBadRequest, "bad_request", "Invalid JSON input")
 		return
 	}
 
@@ -30,8 +31,14 @@ func AddPermission(w http.ResponseWriter, r *http.Request) {
 
 	permID, err := db.InsertPermission(perm)
 	if err != nil {
-		log.Errorf("Failed to insert permission: %v", err)
-		http.Error(w, "Failed to insert permission", http.StatusInternalServerError)
+		var mysqlErr *mysql.MySQLError
+		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+			ErrorResponse(w, http.StatusConflict, "duplicate_entry", "Permission name must be unique")
+			return
+		}
+
+		log.Errorf("Insert permission failed: %v", err)
+		ErrorResponse(w, http.StatusInternalServerError, "db_error", "Could not insert permission")
 		return
 	}
 
@@ -40,17 +47,21 @@ func AddPermission(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(perm)
 }
 
-// GetPermissionByID retrieves a permission by ID
 func GetPermissionByID(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		ErrorResponse(w, http.StatusMethodNotAllowed, "invalid_method", "Only GET allowed")
 		return
 	}
 
 	idStr := r.URL.Query().Get("id")
+	if idStr == "" {
+		ErrorResponse(w, http.StatusBadRequest, "missing_parameter", "Missing permission ID")
+		return
+	}
+
 	permID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid permission ID", http.StatusBadRequest)
+		ErrorResponse(w, http.StatusBadRequest, "invalid_id", "Permission ID must be a number")
 		return
 	}
 
@@ -62,8 +73,7 @@ func GetPermissionByID(w http.ResponseWriter, r *http.Request) {
 
 	perm, err := db.GetPermissionByID(permID)
 	if err != nil {
-		log.Errorf("Failed to get permission: %v", err)
-		http.Error(w, "Permission not found", http.StatusNotFound)
+		ErrorResponse(w, http.StatusNotFound, "not_found", "Permission not found")
 		return
 	}
 
@@ -71,16 +81,15 @@ func GetPermissionByID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(perm)
 }
 
-// UpdatePermission updates an existing permission
 func UpdatePermission(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		ErrorResponse(w, http.StatusMethodNotAllowed, "invalid_method", "Only PUT allowed")
 		return
 	}
 
 	var perm model.Permission
 	if err := json.NewDecoder(r.Body).Decode(&perm); err != nil {
-		http.Error(w, "Invalid input", http.StatusBadRequest)
+		ErrorResponse(w, http.StatusBadRequest, "bad_request", "Invalid JSON input")
 		return
 	}
 
@@ -91,25 +100,32 @@ func UpdatePermission(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	if err := db.UpdatePermission(perm); err != nil {
-		log.Errorf("Failed to update permission: %v", err)
-		http.Error(w, "Update failed", http.StatusInternalServerError)
+		log.Errorf("Update permission failed: %v", err)
+		ErrorResponse(w, http.StatusInternalServerError, "update_failed", "Could not update permission")
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Permission updated successfully",
+	})
 }
 
-// DeletePermission deletes a permission
 func DeletePermission(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		ErrorResponse(w, http.StatusMethodNotAllowed, "invalid_method", "Only DELETE allowed")
 		return
 	}
 
 	idStr := r.URL.Query().Get("id")
+	if idStr == "" {
+		ErrorResponse(w, http.StatusBadRequest, "missing_parameter", "Missing permission ID")
+		return
+	}
+
 	permID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid permission ID", http.StatusBadRequest)
+		ErrorResponse(w, http.StatusBadRequest, "invalid_id", "Permission ID must be a number")
 		return
 	}
 
@@ -120,10 +136,13 @@ func DeletePermission(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	if err := db.DeletePermission(permID); err != nil {
-		log.Errorf("Failed to delete permission: %v", err)
-		http.Error(w, "Delete failed", http.StatusInternalServerError)
+		log.Errorf("Delete permission failed: %v", err)
+		ErrorResponse(w, http.StatusNotFound, "not_found", "Permission not found")
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Permission deleted successfully",
+	})
 }

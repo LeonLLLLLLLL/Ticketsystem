@@ -11,11 +11,16 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// AddUser handles the creation of a new user.
+// AddUser creates a new user
 func AddUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ErrorResponse(w, http.StatusMethodNotAllowed, "invalid_method", "Only POST allowed")
+		return
+	}
+
 	var user model.User
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-		http.Error(w, "Invalid input", http.StatusBadRequest)
+		ErrorResponse(w, http.StatusBadRequest, "bad_request", "Invalid JSON input")
 		return
 	}
 
@@ -29,18 +34,12 @@ func AddUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		var mysqlErr *mysql.MySQLError
 		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
-			// Duplicate entry error
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusConflict)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"error":   "Duplicate entry",
-				"message": "Email already exists.",
-			})
+			ErrorResponse(w, http.StatusConflict, "duplicate_entry", "Username or email already exists")
 			return
 		}
 
 		log.Errorf("Failed to insert user: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		ErrorResponse(w, http.StatusInternalServerError, "db_error", "Could not insert user")
 		return
 	}
 
@@ -49,22 +48,22 @@ func AddUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-// GetUserByID retrieves a user by their ID.
+// GetUserByID fetches a user by ID
 func GetUserByID(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		ErrorResponse(w, http.StatusMethodNotAllowed, "invalid_method", "Only GET allowed")
 		return
 	}
 
 	idStr := r.URL.Query().Get("id")
 	if idStr == "" {
-		http.Error(w, "Missing user ID", http.StatusBadRequest)
+		ErrorResponse(w, http.StatusBadRequest, "missing_parameter", "Missing user ID")
 		return
 	}
 
 	userID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		ErrorResponse(w, http.StatusBadRequest, "invalid_id", "User ID must be a number")
 		return
 	}
 
@@ -76,8 +75,7 @@ func GetUserByID(w http.ResponseWriter, r *http.Request) {
 
 	user, err := db.GetUserByID(userID)
 	if err != nil {
-		log.Errorf("Failed to get user: %v", err)
-		http.Error(w, "User not found", http.StatusNotFound)
+		ErrorResponse(w, http.StatusNotFound, "not_found", "User not found")
 		return
 	}
 
@@ -85,16 +83,16 @@ func GetUserByID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-// UpdateUser handles updating an existing user.
+// UpdateUser updates an existing user
 func UpdateUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		ErrorResponse(w, http.StatusMethodNotAllowed, "invalid_method", "Only PUT allowed")
 		return
 	}
 
 	var user model.User
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-		http.Error(w, "Invalid input", http.StatusBadRequest)
+		ErrorResponse(w, http.StatusBadRequest, "bad_request", "Invalid JSON input")
 		return
 	}
 
@@ -104,36 +102,34 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	err := db.UpdateUser(user)
-	if err != nil {
-		log.Errorf("Failed to update user: %v", err)
-		http.Error(w, "Update failed", http.StatusInternalServerError)
+	if err := db.UpdateUser(user); err != nil {
+		log.Errorf("Update failed: %v", err)
+		ErrorResponse(w, http.StatusInternalServerError, "update_failed", "User could not be updated")
 		return
 	}
 
-	response := map[string]interface{}{
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
 		"message": "User updated successfully",
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	})
 }
 
-// DeleteUser handles the deletion of a user.
+// DeleteUser removes a user
 func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		ErrorResponse(w, http.StatusMethodNotAllowed, "invalid_method", "Only DELETE allowed")
 		return
 	}
 
 	idStr := r.URL.Query().Get("id")
 	if idStr == "" {
-		http.Error(w, "Missing user ID", http.StatusBadRequest)
+		ErrorResponse(w, http.StatusBadRequest, "missing_parameter", "Missing user ID")
 		return
 	}
 
 	userID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		ErrorResponse(w, http.StatusBadRequest, "invalid_id", "User ID must be a number")
 		return
 	}
 
@@ -143,16 +139,13 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	err = db.DeleteUser(userID)
-	if err != nil {
-		log.Errorf("Failed to delete user: %v", err)
-		http.Error(w, "User not found", http.StatusNotFound)
+	if err := db.DeleteUser(userID); err != nil {
+		ErrorResponse(w, http.StatusNotFound, "not_found", "User not found")
 		return
 	}
 
-	response := map[string]interface{}{
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
 		"message": "User deleted successfully",
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	})
 }
