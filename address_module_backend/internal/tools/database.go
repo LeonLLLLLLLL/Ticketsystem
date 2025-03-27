@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"address_module/internal/model"
 	"database/sql"
 	"fmt"
 	"os"
@@ -573,39 +574,7 @@ func (db *MySQLDB) GetAllContacts() ([]ContactParams, error) {
 	return contacts, nil
 }
 
-type User struct {
-	ID             int64      `json:"id"`
-	Username       string     `json:"username"`
-	Email          string     `json:"email"`
-	HashedPassword string     `json:"hashed_password"`
-	CreatedAt      time.Time  `json:"created_at"`
-	CreatedBy      *int64     `json:"created_by,omitempty"`
-	LastLogin      *time.Time `json:"last_login,omitempty"`
-}
-
-type Role struct {
-	ID          int64  `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-}
-
-type Permission struct {
-	ID          int64  `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-}
-
-type RolePermission struct {
-	RoleID       int64 `json:"role_id"`
-	PermissionID int64 `json:"permission_id"`
-}
-
-type UserRole struct {
-	UserID int64 `json:"user_id"`
-	RoleID int64 `json:"role_id"`
-}
-
-func (db *MySQLDB) InsertUser(user User) (int64, error) {
+func (db *MySQLDB) InsertUser(user model.User) (int64, error) {
 	query := `
 	INSERT INTO users (username, email, hashed_password, created_by, last_login)
 	VALUES (?, ?, ?, ?, ?)`
@@ -627,11 +596,11 @@ func (db *MySQLDB) InsertUser(user User) (int64, error) {
 }
 
 // GetUserByID fetches a user by ID
-func (db *MySQLDB) GetUserByID(id int64) (*User, error) {
+func (db *MySQLDB) GetUserByID(id int64) (*model.User, error) {
 	query := `SELECT id, username, email, hashed_password, created_at, created_by, last_login FROM users WHERE id = ?`
 	row := db.DB.QueryRow(query, id)
 
-	var user User
+	var user model.User
 	err := row.Scan(&user.ID, &user.Username, &user.Email, &user.HashedPassword, &user.CreatedAt, &user.CreatedBy, &user.LastLogin)
 	if err != nil {
 		log.Error("Failed to get user: ", err)
@@ -641,7 +610,7 @@ func (db *MySQLDB) GetUserByID(id int64) (*User, error) {
 }
 
 // UpdateUser updates user data
-func (db *MySQLDB) UpdateUser(user User) error {
+func (db *MySQLDB) UpdateUser(user model.User) error {
 	query := `
 	UPDATE users
 	SET username = ?, email = ?, hashed_password = ?, created_by = ?, last_login = ?
@@ -671,7 +640,7 @@ func (db *MySQLDB) DeleteUser(id int64) error {
 	return nil
 }
 
-func (db *MySQLDB) InsertRole(role Role) (int64, error) {
+func (db *MySQLDB) InsertRole(role model.Role) (int64, error) {
 	query := `
 	INSERT INTO roles (name, description)
 	VALUES (?, ?)`
@@ -693,11 +662,11 @@ func (db *MySQLDB) InsertRole(role Role) (int64, error) {
 }
 
 // GetRoleByID fetches a role by ID
-func (db *MySQLDB) GetRoleByID(id int64) (*Role, error) {
+func (db *MySQLDB) GetRoleByID(id int64) (*model.Role, error) {
 	query := `SELECT id, name, description FROM roles WHERE id = ?`
 	row := db.DB.QueryRow(query, id)
 
-	var role Role
+	var role model.Role
 	err := row.Scan(&role.ID, &role.Name, &role.Description)
 	if err != nil {
 		log.Error("Failed to get role: ", err)
@@ -707,7 +676,7 @@ func (db *MySQLDB) GetRoleByID(id int64) (*Role, error) {
 }
 
 // UpdateRole updates a role
-func (db *MySQLDB) UpdateRole(role Role) error {
+func (db *MySQLDB) UpdateRole(role model.Role) error {
 	query := `UPDATE roles SET name = ?, description = ? WHERE id = ?`
 
 	_, err := db.DB.Exec(query, role.Name, role.Description, role.ID)
@@ -732,7 +701,7 @@ func (db *MySQLDB) DeleteRole(id int64) error {
 	return nil
 }
 
-func (db *MySQLDB) InsertPermission(permission Permission) (int64, error) {
+func (db *MySQLDB) InsertPermission(permission model.Permission) (int64, error) {
 	query := `
 	INSERT INTO permissions (name, description)
 	VALUES (?, ?)`
@@ -754,11 +723,11 @@ func (db *MySQLDB) InsertPermission(permission Permission) (int64, error) {
 }
 
 // GetPermissionByID fetches a permission by ID
-func (db *MySQLDB) GetPermissionByID(id int64) (*Permission, error) {
+func (db *MySQLDB) GetPermissionByID(id int64) (*model.Permission, error) {
 	query := `SELECT id, name, description FROM permissions WHERE id = ?`
 	row := db.DB.QueryRow(query, id)
 
-	var perm Permission
+	var perm model.Permission
 	err := row.Scan(&perm.ID, &perm.Name, &perm.Description)
 	if err != nil {
 		log.Error("Failed to get permission: ", err)
@@ -768,7 +737,7 @@ func (db *MySQLDB) GetPermissionByID(id int64) (*Permission, error) {
 }
 
 // UpdatePermission updates a permission
-func (db *MySQLDB) UpdatePermission(permission Permission) error {
+func (db *MySQLDB) UpdatePermission(permission model.Permission) error {
 	query := `UPDATE permissions SET name = ?, description = ? WHERE id = ?`
 
 	_, err := db.DB.Exec(query, permission.Name, permission.Description, permission.ID)
@@ -794,7 +763,7 @@ func (db *MySQLDB) DeletePermission(id int64) error {
 }
 
 // GetUserRoles returns all roles assigned to a user
-func (db *MySQLDB) GetUserRoles(userID int64) ([]Role, error) {
+func (db *MySQLDB) GetUserRoles(userID int64) ([]model.Role, error) {
 	query := `
 	SELECT r.id, r.name, r.description
 	FROM roles r
@@ -808,9 +777,9 @@ func (db *MySQLDB) GetUserRoles(userID int64) ([]Role, error) {
 	}
 	defer rows.Close()
 
-	var roles []Role
+	var roles []model.Role
 	for rows.Next() {
-		var role Role
+		var role model.Role
 		if err := rows.Scan(&role.ID, &role.Name, &role.Description); err != nil {
 			return nil, err
 		}
@@ -833,7 +802,7 @@ func (db *MySQLDB) DeleteUserRole(userID, roleID int64) error {
 }
 
 // GetRolePermissions returns all permissions assigned to a role
-func (db *MySQLDB) GetRolePermissions(roleID int64) ([]Permission, error) {
+func (db *MySQLDB) GetRolePermissions(roleID int64) ([]model.Permission, error) {
 	query := `
 	SELECT p.id, p.name, p.description
 	FROM permissions p
@@ -847,9 +816,9 @@ func (db *MySQLDB) GetRolePermissions(roleID int64) ([]Permission, error) {
 	}
 	defer rows.Close()
 
-	var permissions []Permission
+	var permissions []model.Permission
 	for rows.Next() {
-		var perm Permission
+		var perm model.Permission
 		if err := rows.Scan(&perm.ID, &perm.Name, &perm.Description); err != nil {
 			return nil, err
 		}
@@ -871,7 +840,7 @@ func (db *MySQLDB) DeleteRolePermission(roleID, permissionID int64) error {
 	return nil
 }
 
-func (db *MySQLDB) InsertRolePermission(rp RolePermission) error {
+func (db *MySQLDB) InsertRolePermission(rp model.RolePermission) error {
 	query := `
 	INSERT INTO role_permissions (role_id, permission_id)
 	VALUES (?, ?)`
@@ -886,7 +855,7 @@ func (db *MySQLDB) InsertRolePermission(rp RolePermission) error {
 	return nil
 }
 
-func (db *MySQLDB) InsertUserRole(ur UserRole) error {
+func (db *MySQLDB) InsertUserRole(ur model.UserRole) error {
 	query := `
 	INSERT INTO user_roles (user_id, role_id)
 	VALUES (?, ?)`
@@ -1236,7 +1205,7 @@ func (db *MySQLDB) RunCRUDTests() error {
 	log.Info("---- Running Full CRUD Tests ----")
 
 	// Insert a test user
-	testUser := User{
+	testUser := model.User{
 		Username:       "testuser1",
 		Email:          "testuser1@example.com",
 		HashedPassword: "hashed_pass_123",
@@ -1248,7 +1217,7 @@ func (db *MySQLDB) RunCRUDTests() error {
 	log.Infof("Inserted User ID: %d", userID)
 
 	// Insert a test role
-	testRole := Role{
+	testRole := model.Role{
 		Name:        "admin",
 		Description: "Administrator role",
 	}
@@ -1259,7 +1228,7 @@ func (db *MySQLDB) RunCRUDTests() error {
 	log.Infof("Inserted Role ID: %d", roleID)
 
 	// Insert a test permission
-	testPerm := Permission{
+	testPerm := model.Permission{
 		Name:        "read_all",
 		Description: "Permission to read everything",
 	}
@@ -1270,14 +1239,14 @@ func (db *MySQLDB) RunCRUDTests() error {
 	log.Infof("Inserted Permission ID: %d", permID)
 
 	// Assign role to user
-	err = db.InsertUserRole(UserRole{UserID: userID, RoleID: roleID})
+	err = db.InsertUserRole(model.UserRole{UserID: userID, RoleID: roleID})
 	if err != nil {
 		return err
 	}
 	log.Infof("Assigned Role ID %d to User ID %d", roleID, userID)
 
 	// Assign permission to role
-	err = db.InsertRolePermission(RolePermission{RoleID: roleID, PermissionID: permID})
+	err = db.InsertRolePermission(model.RolePermission{RoleID: roleID, PermissionID: permID})
 	if err != nil {
 		return err
 	}
