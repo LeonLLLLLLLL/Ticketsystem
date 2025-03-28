@@ -870,6 +870,59 @@ func (db *MySQLDB) InsertUserRole(ur model.UserRole) error {
 	return nil
 }
 
+func (db *MySQLDB) GetUserByEmail(email string) (*model.User, error) {
+	query := `SELECT id, username, email, hashed_password, created_at, created_by, last_login FROM users WHERE email = ?`
+
+	row := db.DB.QueryRow(query, email)
+	var user model.User
+	err := row.Scan(&user.ID, &user.Username, &user.Email, &user.HashedPassword, &user.CreatedAt, &user.CreatedBy, &user.LastLogin)
+	if err != nil {
+		log.Error("Failed to fetch user by email: ", err)
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (db *MySQLDB) GetUserByUsername(username string) (*model.User, error) {
+	query := `SELECT id, username, email, hashed_password, created_at, created_by, last_login FROM users WHERE username = ?`
+
+	row := db.DB.QueryRow(query, username)
+	var user model.User
+	err := row.Scan(&user.ID, &user.Username, &user.Email, &user.HashedPassword, &user.CreatedAt, &user.CreatedBy, &user.LastLogin)
+	if err != nil {
+		log.Error("Failed to fetch user by username: ", err)
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (db *MySQLDB) GetUserPermissions(userID int64) ([]model.Permission, error) {
+	query := `
+		SELECT p.id, p.name, p.description
+		FROM permissions p
+		JOIN role_permissions rp ON rp.permission_id = p.id
+		JOIN user_roles ur ON ur.role_id = rp.role_id
+		WHERE ur.user_id = ?`
+
+	rows, err := db.DB.Query(query, userID)
+	if err != nil {
+		log.Error("Failed to get user permissions: ", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var permissions []model.Permission
+	for rows.Next() {
+		var p model.Permission
+		err := rows.Scan(&p.ID, &p.Name, &p.Description)
+		if err != nil {
+			return nil, err
+		}
+		permissions = append(permissions, p)
+	}
+	return permissions, nil
+}
+
 /*
 TEST FUNCTION REMOVE LATER!!!
 */

@@ -11,10 +11,14 @@ func Handler(r *chi.Mux) {
 	// Global middleware
 	r.Use(chimiddle.StripSlashes)
 
+	r.Route("/auth", func(router chi.Router) {
+		router.Post("/login", LoginHandler) // points to middleware package now
+	})
+
 	// Users
 	r.Route("/users", func(router chi.Router) {
 		router.Use(middleware.Authorization)
-		router.Post("/create", AddUser)
+		router.With(middleware.RequirePermission("full_access")).Post("/create", AddUser)
 		router.Get("/get", GetUserByID)      // expects ?id=
 		router.Put("/update", UpdateUser)    // expects full user JSON body with ID
 		router.Delete("/delete", DeleteUser) // expects ?id=
