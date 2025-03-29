@@ -18,7 +18,7 @@ func Handler(r *chi.Mux) {
 	// Users
 	r.Route("/users", func(router chi.Router) {
 		router.Use(middleware.Authorization)
-		router.With(middleware.RequirePermission("full_access")).Post("/create", AddUser)
+		router.With(middleware.RequirePermission("create_users")).Post("/create", AddUser)
 		router.Get("/get", GetUserByID)      // expects ?id=
 		router.Put("/update", UpdateUser)    // expects full user JSON body with ID
 		router.Delete("/delete", DeleteUser) // expects ?id=

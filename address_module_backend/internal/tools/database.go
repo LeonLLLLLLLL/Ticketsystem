@@ -923,6 +923,24 @@ func (db *MySQLDB) GetUserPermissions(userID int64) ([]model.Permission, error) 
 	return permissions, nil
 }
 
+func (db *MySQLDB) GetPermissionByName(name string) (*model.Permission, error) {
+	query := `SELECT id, name, description FROM permissions WHERE name = ?`
+	row := db.DB.QueryRow(query, name)
+
+	var p model.Permission
+	err := row.Scan(&p.ID, &p.Name, &p.Description)
+	return &p, err
+}
+
+func (db *MySQLDB) GetRoleByName(name string) (*model.Role, error) {
+	query := `SELECT id, name, description FROM roles WHERE name = ?`
+	row := db.DB.QueryRow(query, name)
+
+	var r model.Role
+	err := row.Scan(&r.ID, &r.Name, &r.Description)
+	return &r, err
+}
+
 /*
 TEST FUNCTION REMOVE LATER!!!
 */

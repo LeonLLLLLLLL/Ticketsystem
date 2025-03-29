@@ -20,13 +20,18 @@ func main() {
 	tools.Configure()
 
 	// Initialize database connection
-	db, err := tools.NewDatabase(10, 3*time.Second)
+	db, err := tools.NewDatabase(15, 3*time.Second)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
 	// Initialize database schema
 	err = db.SetupDatabase()
+	if err != nil {
+		log.Fatalf("Failed to initialize database schema: %v", err)
+	}
+
+	err = db.SeedInitialData()
 	if err != nil {
 		log.Fatalf("Failed to initialize database schema: %v", err)
 	}

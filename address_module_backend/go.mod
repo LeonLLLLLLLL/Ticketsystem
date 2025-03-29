@@ -16,5 +16,6 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/gorilla/schema v1.4.1
 	github.com/rs/cors v1.11.1
-	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8 // indirect
+	golang.org/x/crypto v0.36.0
+	golang.org/x/sys v0.31.0 // indirect
 )

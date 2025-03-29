@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // AddUser creates a new user
@@ -23,6 +24,13 @@ func AddUser(w http.ResponseWriter, r *http.Request) {
 		ErrorResponse(w, http.StatusBadRequest, "bad_request", "Invalid JSON input")
 		return
 	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.HashedPassword), bcrypt.DefaultCost)
+	if err != nil {
+		ErrorResponse(w, http.StatusInternalServerError, "hash_error", "Failed to hash password")
+		return
+	}
+	user.HashedPassword = string(hashedPassword)
 
 	db, ok := getDBInstance(w)
 	if !ok {

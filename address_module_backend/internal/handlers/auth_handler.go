@@ -10,6 +10,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var jwtSecret = []byte("super_secret_change_me")
@@ -48,8 +49,8 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Replace this with bcrypt.CompareHashAndPassword()
-	if user.HashedPassword != creds.Password {
+	err = bcrypt.CompareHashAndPassword([]byte(user.HashedPassword), []byte(creds.Password))
+	if err != nil {
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
