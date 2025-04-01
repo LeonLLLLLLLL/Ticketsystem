@@ -11,8 +11,10 @@ func Handler(r *chi.Mux) {
 	// Global middleware
 	r.Use(chimiddle.StripSlashes)
 
+	// Login & Register
 	r.Route("/auth", func(router chi.Router) {
 		router.Post("/login", LoginHandler) // points to middleware package now
+		router.Post("/register", RegisterHandler)
 	})
 
 	// Users
