@@ -90,12 +90,15 @@
       cursor: pointer;
     }
   
-    .toggle {
+    .toggle-button {
       margin-top: 1rem;
       text-align: center;
+      background: none;
+      border: none;
       color: #0077cc;
-      cursor: pointer;
       font-size: 0.9rem;
+      cursor: pointer;
+      text-decoration: underline;
     }
   
     .error {
@@ -122,8 +125,9 @@
       <div class="error">{error}</div>
     {/if}
   
-    <div class="toggle" on:click={toggleMode}>
+    <!-- ✅ Changed div to accessible button -->
+    <button class="toggle-button" type="button" on:click={toggleMode}>
       {isLogin ? 'Don’t have an account? Register' : 'Already have an account? Login'}
-    </div>
+    </button>
   </div>
   
