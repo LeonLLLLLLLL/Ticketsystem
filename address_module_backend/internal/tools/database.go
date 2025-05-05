@@ -111,7 +111,7 @@ func NewDatabase(maxRetries int, delay time.Duration) (*MySQLDB, error) {
 	port := os.Getenv("MYSQL_PORT")
 
 	if port == "" {
-		port = "3306"
+		port = "3307"
 	}
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {

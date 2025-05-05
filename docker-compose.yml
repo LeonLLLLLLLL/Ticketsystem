@@ -1,4 +1,5 @@
 version: '3.8'
+
 services:
   frontend:
     build: ./frontend
@@ -17,11 +18,29 @@ services:
       - "8000:8000"
     depends_on:
       - mysql_ticket_database
+      - address_module_database
+      - user_database
     environment:
+      # MySQL environment variables (for backward compatibility)
       MYSQL_HOST: mysql_ticket_database
-      MYSQL_USER: user  # Changed to match MySQL user
-      MYSQL_PASSWORD: password  # Changed to match MySQL password
-      MYSQL_DATABASE: FirmDB
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+      MYSQL_DATABASE: mysql_ticket_database
+      MYSQL_PORT: 3306
+      
+      # PostgreSQL Address Module DB
+      PGHOST: address_module_database
+      PGUSER: user
+      PGPASSWORD: password
+      PGDATABASE: address_module_database
+      PGPORT: 5432
+
+      # PostgreSQL User Core DB
+      CORE_DB_HOST: user_database
+      CORE_DB_USER: core_user
+      CORE_DB_PASSWORD: core_password
+      CORE_DB_NAME: user_database
+      CORE_DB_PORT: 5434
     networks:
       - mynetwork
 
@@ -31,11 +50,45 @@ services:
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: admin
-      MYSQL_DATABASE: FirmDB
+      MYSQL_DATABASE: mysql_ticket_database
       MYSQL_USER: user
       MYSQL_PASSWORD: password
     volumes:
       - mysql_data:/var/lib/mysql
+    ports:
+      - "3307:3306"   # External 3307 -> Internal 3306
+    networks:
+      - mynetwork
+
+  address_module_database:
+    image: postgres:15
+    container_name: address_module_database
+    restart: always
+    environment:
+      POSTGRES_DB: address_module_database
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    volumes:
+      - address_module_data:/var/lib/postgresql/data
+      - ./db_init_address:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    networks:
+      - mynetwork
+
+  user_database:
+    image: postgres:15
+    container_name: user_database
+    restart: always
+    environment:
+      POSTGRES_DB: user_database
+      POSTGRES_USER: core_user
+      POSTGRES_PASSWORD: core_password
+    volumes:
+      - user_data:/var/lib/postgresql/data
+      - ./db_init_user:/docker-entrypoint-initdb.d
+    ports:
+      - "5434:5432"
     networks:
       - mynetwork
 
@@ -44,3 +97,5 @@ networks:
 
 volumes:
   mysql_data:
+  address_module_data:
+  user_data:

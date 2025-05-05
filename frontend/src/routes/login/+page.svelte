@@ -1,59 +1,59 @@
 <script lang="ts">
-    import { browser } from '$app/environment';
-    import { toastStore } from '$lib/stores/toastStore';
-  
-    let isLogin = true;
-    let username = '';
-    let email = '';
-    let password = '';
-    let identifier = '';
-    let error = '';
-  
-    const API_URL = browser 
-      ? (window.location.hostname === "localhost"
-        ? "http://localhost:8000"
-        : "http://address_module_backend:8000")
-      : "http://address_module_backend:8000";
-  
-    const toggleMode = () => {
-      isLogin = !isLogin;
-      error = '';
-    };
-  
-    async function handleSubmit() {
-      const url = isLogin ? '/auth/login' : '/auth/register';
-      const payload = isLogin
-        ? { identifier, password }
-        : { username, email, password };
-  
-      try {
-        const res = await fetch(`${API_URL}${url}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-  
-        if (!res.ok) {
-          const errText = await res.text();
-          toastStore.push(`Error: ${errText}`, 'error');
-          throw new Error(errText);
-        }
-  
-        const data = await res.json();
-  
-        if (isLogin && data.token) {
-          localStorage.setItem('token', data.token);
-          toastStore.push('Login successful!', 'success');
-        } else {
-          isLogin = true;
-          toastStore.push('Registration successful! Please log in.', 'success');
-        }
-      } catch (err) {
-        console.error(err);
-        toastStore.push('Something went wrong. Please try again.', 'error');
+  import { browser } from '$app/environment';
+  import { toastStore } from '$lib/stores/toastStore';
+
+  let isLogin = true;
+  let username = '';
+  let email = '';
+  let password = '';
+  let identifier = '';
+  let error = '';
+
+  const API_URL = browser 
+    ? (window.location.hostname === "localhost"
+      ? "http://localhost:8000"
+      : "http://address_module_backend:8000")
+    : "http://address_module_backend:8000";
+
+  const toggleMode = () => {
+    isLogin = !isLogin;
+    error = '';
+  };
+
+  async function handleSubmit() {
+    const url = isLogin ? '/auth/login' : '/auth/register';
+    const payload = isLogin
+      ? { identifier, password }
+      : { username, email, password };
+
+    try {
+      const res = await fetch(`${API_URL}${url}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        toastStore.push(`Error: ${errText}`, 'error');
+        throw new Error(errText);
       }
+
+      const data = await res.json();
+
+      if (isLogin && data.token) {
+        localStorage.setItem('token', data.token);
+        toastStore.push('Login successful!', 'success');
+      } else {
+        isLogin = true;
+        toastStore.push('Registration successful! Please log in.', 'success');
+      }
+    } catch (err) {
+      console.error(err);
+      toastStore.push('Something went wrong. Please try again.', 'error');
     }
-  </script>
+  }
+</script>
   
   <style>
     .auth-container {

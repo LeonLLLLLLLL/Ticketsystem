@@ -8,7 +8,7 @@ docker-compose down --volumes
 echo "Removing project's images..."
 docker rmi "${CURRENT_DIR_NAME}_frontend"
 docker rmi "${CURRENT_DIR_NAME}_address_module_backend"
-docker rmi -f $(docker images -q $(docker-compose config | awk '/image:/ {print $2}'))
+#docker rmi -f $(docker images -q $(docker-compose config | awk '/image:/ {print $2}'))
 
 echo "Removing project's volumes..."
 docker volume rm -f mysql_data 2>/dev/null
