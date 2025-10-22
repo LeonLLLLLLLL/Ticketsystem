@@ -34,7 +34,7 @@ services:
       PGUSER: user
       PGPASSWORD: password
       PGDATABASE: address_module_database
-      PGPORT: 5432
+      PGPORT: 5422
 
       # PostgreSQL User Core DB
       CORE_DB_HOST: user_database
@@ -80,7 +80,7 @@ services:
       - address_module_data:/var/lib/postgresql/data
       - ./db_init_address:/docker-entrypoint-initdb.d
     ports:
-      - "5432:5432"
+      - "5422:5422"
     networks:
       - mynetwork
 
