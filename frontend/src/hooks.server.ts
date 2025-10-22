@@ -7,10 +7,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const session = event.cookies.get('session');
 
 	// Allow access to login page even if not logged in
-	if (!session && event.url.pathname !== '/login') {
+	//if (!session && event.url.pathname !== '/login') {
 		// Redirect to login
-		throw redirect(302, '/login');
-	}
+	//	throw redirect(302, '/login');
+	//}
 
 	// Continue to requested page
 	return resolve(event);

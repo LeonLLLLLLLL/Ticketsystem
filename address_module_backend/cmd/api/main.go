@@ -53,6 +53,20 @@ func main() {
 
 	defer db.Close()
 
+	// Connect to Postgres Device Management DB
+	pgDB, err := tools.NewPostgresDatabase(20, 2*time.Second)
+	if err != nil {
+		log.Fatalf("Failed to connect to Postgres (device_management_database): %v", err)
+	}
+	defer pgDB.Close()
+
+	// Run CRUD test for device management DB
+	if err := tools.RunPostgresDeviceCRUDTests(pgDB); err != nil {
+		log.Errorf("Postgres device CRUD tests failed: %v", err)
+	} else {
+		log.Info("Postgres device CRUD tests passed ✅")
+	}
+
 	// Create a new router
 	r := chi.NewRouter()
 

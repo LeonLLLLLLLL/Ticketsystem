@@ -3,6 +3,7 @@ package tools
 import (
 	"address_module/internal/model"
 	"database/sql"
+	//"github.com/lib/pq"
 	"fmt"
 	"os"
 	"time"
@@ -25,6 +26,10 @@ type DatabaseInterface interface {
 	GetContactsByFirmID(firmID int64) ([]ContactParams, error)
 	GetAllFirms() ([]FirmParams, error)
 	GetAllContacts() ([]ContactParams, error)
+
+	// PostgreSQL Device methods
+	InsertDevice(device DeviceParams) (int64, error)
+	GetAllDevices() ([]DeviceParams, error)
 }
 
 // FirmParams struct matching the MySQL table
@@ -1405,3 +1410,106 @@ func (db *MySQLDB) RunCRUDTests() error {
 	log.Info("---- CRUD Tests Completed Successfully ✅ ----")
 	return nil
 }
+
+/*###################### Postgres ###########################*/
+/*
+type PostgresDB struct {
+	DB *sql.DB
+}
+
+func NewPostgresDatabase(maxRetries int, delay time.Duration) (*PostgresDB, error) {
+	host := os.Getenv("DEVICE_DB_HOST")
+	user := os.Getenv("DEVICE_DB_USER")
+	password := os.Getenv("DEVICE_DB_PASSWORD")
+	dbName := os.Getenv("DEVICE_DB_NAME")
+	port := os.Getenv("DEVICE_DB_PORT")
+
+	if port == "" {
+		port = "5435"
+	}
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+			host, port, user, password, dbName)
+
+		db, err := sql.Open("postgres", dsn)
+		if err != nil {
+			log.Errorf("Failed to open Postgres DB (Attempt %d): %v", attempt, err)
+			continue
+		}
+
+		if err := db.Ping(); err == nil {
+			log.Infof("Successfully connected to Postgres DB")
+			return &PostgresDB{DB: db}, nil
+		}
+
+		log.Warnf("Retrying Postgres DB connection... attempt %d", attempt)
+		time.Sleep(delay)
+	}
+
+	return nil, fmt.Errorf("could not connect to Postgres DB after %d attempts", maxRetries)
+}
+
+type DeviceParams struct {
+	ID                    int64
+	Name                  string
+	Hostname              string
+	IP                    string
+	Domain                string
+	Manufacturer          string
+	ModelType             string
+	SerialNumbers         string // store as JSON string
+	MAC                   string
+	Description           string
+	Equipment             string
+	Function              string
+	Settings              string
+	DeviceLink            string
+	CommissioningDate     string // YYYY-MM-DD
+	Origin                string
+	WarrantyServiceNumber string
+	WarrantyUntil         string // YYYY-MM-DD
+	Licenses              string // store as JSON string
+	LocationText          string
+	Department            string
+	InternalContact       string
+	ExternalContact       string
+	MapLink               string
+	SoftwareInterfaces    string // JSON string
+	BackupMethod          string
+	BackupFileLink        string
+	SoftwareAsset         string
+	PasswordLink          string
+	InternalAccess        string
+	ExternalAccess        string
+	MiscLinks             string // JSON string
+	ExternallyAccessible  bool
+	RestartHow            string
+	RestartNotes          string
+	RestartCoordination   string
+	NetworkConnection     string
+	PatchLocation         string
+	Documents             string
+}
+
+func (db *PostgresDB) GetAllDevices() ([]DeviceParams, error) {
+	query := `SELECT id, name, hostname, ip, domain, manufacturer FROM devices ORDER BY id DESC`
+
+	rows, err := db.DB.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query devices: %v", err)
+	}
+	defer rows.Close()
+
+	var devices []DeviceParams
+	for rows.Next() {
+		var d DeviceParams
+		err := rows.Scan(&d.ID, &d.Name, &d.Hostname, &d.IP, &d.Domain, &d.Manufacturer)
+		if err != nil {
+			return nil, err
+		}
+		devices = append(devices, d)
+	}
+	return devices, nil
+}
+*/

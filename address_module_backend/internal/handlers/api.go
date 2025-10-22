@@ -69,4 +69,22 @@ func Handler(r *chi.Mux) {
 		router.With(middleware.RequirePermission("create_contacts")).Post("/submit", AddContact)
 		router.With(middleware.RequirePermission("view_contacts")).Get("/get", GetAllContacts)
 	})
+
+	// ✅ Devices (no permission middleware)
+	r.Route("/devices", func(router chi.Router) {
+		router.Post("/create", AddDevice)
+		router.Get("/get", GetDeviceByID) // expects ?id=
+		router.Get("/list", ListDevices)
+		router.Put("/update", UpdateDevice)
+		router.Delete("/delete", DeleteDevice) // expects ?id=
+	})
+
+	// ✅ Device Links (no permission middleware)
+	r.Route("/device_links", func(router chi.Router) {
+		router.Post("/create", AddDeviceLink)
+		router.Put("/update", UpdateDeviceLink)
+		router.Get("/list", ListDeviceLinks)
+		router.Get("/get", GetDeviceLinksForDevice) // expects ?device_id=
+		router.Delete("/delete", DeleteDeviceLink)  // expects ?id=
+	})
 }

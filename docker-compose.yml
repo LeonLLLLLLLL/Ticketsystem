@@ -20,6 +20,7 @@ services:
       - mysql_ticket_database
       - address_module_database
       - user_database
+      - device_management_database
     environment:
       # MySQL environment variables (for backward compatibility)
       MYSQL_HOST: mysql_ticket_database
@@ -27,7 +28,7 @@ services:
       MYSQL_PASSWORD: password
       MYSQL_DATABASE: mysql_ticket_database
       MYSQL_PORT: 3306
-      
+
       # PostgreSQL Address Module DB
       PGHOST: address_module_database
       PGUSER: user
@@ -41,6 +42,13 @@ services:
       CORE_DB_PASSWORD: core_password
       CORE_DB_NAME: user_database
       CORE_DB_PORT: 5434
+
+      # Device Management DB
+      DEVICE_DB_HOST: device_management_database
+      DEVICE_DB_USER: device_user
+      DEVICE_DB_PASSWORD: device_password
+      DEVICE_DB_NAME: device_management_database
+      DEVICE_DB_PORT: 5432
     networks:
       - mynetwork
 
@@ -56,7 +64,7 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     ports:
-      - "3307:3306"   # External 3307 -> Internal 3306
+      - "3307:3306"
     networks:
       - mynetwork
 
@@ -92,6 +100,22 @@ services:
     networks:
       - mynetwork
 
+  device_management_database:
+    image: postgres:15
+    container_name: device_management_database
+    restart: always
+    environment:
+      POSTGRES_DB: device_management_database
+      POSTGRES_USER: device_user
+      POSTGRES_PASSWORD: device_password
+    volumes:
+      - device_management_data:/var/lib/postgresql/data
+      - ./db_init_device:/docker-entrypoint-initdb.d
+    ports:
+      - "5435:5432"
+    networks:
+      - mynetwork
+
 networks:
   mynetwork:
 
@@ -99,3 +123,4 @@ volumes:
   mysql_data:
   address_module_data:
   user_data:
+  device_management_data:
