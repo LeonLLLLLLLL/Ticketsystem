@@ -3,7 +3,7 @@
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
 
-  const BASE_URL = 'http://localhost:8000';
+  const BASE_URL = 'http://localhost:7000';
 
   let devices: any[] = [];
   let deviceLinks: any[] = [];
